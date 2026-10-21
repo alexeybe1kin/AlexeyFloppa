@@ -1,7 +1,7 @@
 """Build the profile's stat cards as SVGs from live data.
 
-Two cards, each in a dark and a light version: a metrics-style dashboard and a
-neofetch-style terminal. Sources: GitHub GraphQL, LeetCode, Chess.com and
+Four cards, each in a dark and a light version: a metrics-style dashboard, an
+about/journey panel, an elsewhere strip and a neofetch-style terminal. Sources: GitHub GraphQL, LeetCode, Chess.com and
 TryHackMe. Every source is
 optional: when one fails (rate limit, bot wall, outage) its last good data is
 reused from data.json, so a bad run never blanks a card.
@@ -122,6 +122,28 @@ def fetch_github_public(token):
     days = [[x["date"], x["contributionCount"]] for w in cal["weeks"] for x in w["contributionDays"]]
     return {"created_at": d["createdAt"], "followers": d["followers"]["totalCount"],
             "total": cal["totalContributions"], "days": days}
+
+
+ORG = "Conker-AI"
+
+
+def fetch_conker(token):
+    """The Conker org (all public) and how many commits I've made to each repo."""
+    d = gh_graphql(token, f"""query{{
+      organization(login:"{ORG}"){{name description createdAt
+        repositories(first:20, privacy:PUBLIC, orderBy:{{field:PUSHED_AT, direction:DESC}}){{totalCount
+          nodes{{name stargazerCount primaryLanguage{{name color}}}}}}}}
+      user(login:"{USER}"){{contributionsCollection{{commitContributionsByRepository(maxRepositories:100){{
+        repository{{name owner{{login}}}} contributions(first:1){{totalCount}}}}}}}}}}""")
+    org = d["organization"]
+    mine = {r["repository"]["name"]: r["contributions"]["totalCount"]  # total commits, per GitHub docs
+            for r in d["user"]["contributionsCollection"]["commitContributionsByRepository"]
+            if r["repository"]["owner"]["login"] == ORG}
+    repos = [{"name": r["name"], "stars": r["stargazerCount"],
+              "lang": (r["primaryLanguage"] or {}).get("name"), "color": (r["primaryLanguage"] or {}).get("color"),
+              "commits": mine.get(r["name"], 0)}
+             for r in org["repositories"]["nodes"] if not r["name"].startswith(".")]
+    return {"name": org["name"], "description": org["description"], "created_at": org["createdAt"], "repos": repos}
 
 
 def fetch_github_private(token):
@@ -504,7 +526,6 @@ def card_dashboard(data, s, avatar):
     W, H = 880, 556
     c = Card(W, H, border=False)
     g, p = data.get("github", {}), data.get("github_private", {})
-    ch, lc, thm = data.get("chess", {}), data.get("leetcode", {}), data.get("tryhackme", {})
     c.css.append(
         f".nm{{font:600 22px {FONT};fill:{C['accent']}}}"
         f".h{{font:400 16px {FONT};fill:{C['accent']}}}"
@@ -645,21 +666,70 @@ def card_dashboard(data, s, avatar):
     c.add(c.fade(f'<clipPath id="lb"><rect x="{R}" y="384" width="400" height="8" rx="4"/></clipPath>'
                  f'<g clip-path="url(#lb)">{bar}</g>' + legend, 350))
 
-    c.add(header("globe", R, 452, "Elsewhere"))
-    modes = ch.get("modes", {})
-    solved = lc.get("solved", {})
-    rows = [
-        ("chessdotcom", "Chess.com", " · ".join(f"{m['rating']} {k.lower()}" for k, m in list(modes.items())[:3])
+    org = data.get("conker")
+    if org:
+        made = dt.date.fromisoformat(org["created_at"][:10])
+        repos = sorted(org["repos"], key=lambda r: -r["commits"])[:6]
+        c.add(header("organization", R, 452, org["name"]) + t(R + 86, 452, org["description"].rstrip("."), "bm"))
+        c.add(c.fade(line("git-commit", R, 478, f"{n(sum(r['commits'] for r in org['repos']))} commits from me "
+                                              f"across {len(org['repos'])} repos · since {made:%b %Y}"), 400))
+        for i, r in enumerate(repos):
+            x, y = R + (i % 3) * 136, 506 + (i // 3) * 26
+            c.add(c.fade(f'<circle cx="{x + 5}" cy="{y - 4}" r="5" fill="{r["color"] or C["gray"]}"/>'
+                         + t(x + 16, y, r["name"], "b") + t(x + 126, y, n(r["commits"]), "bm", "end"), 450 + i * 50))
+    return c.svg()
+
+
+def card_about():
+    W, H = 880, 186
+    c = Card(W, H, border=False)
+    c.css.append(f".h{{font:400 16px {FONT};fill:{C['accent']}}}.b{{font:600 13px {FONT};fill:{C['text']}}}"
+                 f".bm{{font:400 13px {FONT};fill:{C['muted']}}}")
+    mut = C["muted"]
+    L, R = 20, 460
+    c.add(octicon("person", L, 23, mut) + t(L + 22, 36, "About", "h"))
+    facts = [("code", "Self-taught developer since 2020, now 16"),
+             ("copilot", "These days: mostly AI, agents and the tools around them"),
+             ("organization", "Building Conker, a personal AI companion you host yourself"),
+             ("heart", "Also building Better.io, a calm calendar and habits app"),
+             ("bug", "Known issue: makes doge banners when left unsupervised")]
+    for i, (ic, text) in enumerate(facts):
+        y = 64 + i * 23
+        c.add(c.fade(octicon(ic, L, y - 12, mut) + t(L + 22, y, text, "bm"), 100 + i * 60))
+
+    c.add(octicon("milestone", R, 23, mut) + t(R + 22, 36, "Journey", "h"))
+    stops = [("2020", "C#", "cs"), ("2021", "Python, web", "python"), ("2022", "Unity", "unity"),
+             ("2024", "Flutter", "flutter"), ("2025", "AI", None), ("2026", "Conker", None)]
+    x0, step, ly = R + 26, 74, 106
+    c.add(f'<line x1="{x0}" y1="{ly}" x2="{x0 + step * (len(stops) - 1)}" y2="{ly}" stroke="{C["line"]}" stroke-width="2"/>')
+    for i, (year, what, icon) in enumerate(stops):
+        x = x0 + i * step
+        last = i == len(stops) - 1
+        mark = (logo(os.path.join(ROOT, "assets", "stack", f"{icon}.svg"), x - 11, 62, 22, f"jy{i}") if icon
+                else octicon("copilot" if what == "AI" else "organization", x - 9, 64, C["text"], 18))
+        dot = (f'<circle cx="{x}" cy="{ly}" r="6" fill="{C["bg"]}" stroke="{C["accent"] if last else C["green"]}" stroke-width="3"/>')
+        c.add(c.fade(mark + dot + t(x, ly + 26, year, "b", "middle") + t(x, ly + 44, what, "bm", "middle"), 150 + i * 90))
+    return c.svg()
+
+
+def card_elsewhere(data):
+    W, H = 880, 64
+    c = Card(W, H, border=False)
+    c.css.append(f".b{{font:600 14px {FONT};fill:{C['text']}}}.bm{{font:400 13px {FONT};fill:{C['muted']}}}")
+    ch, lc, thm = data.get("chess", {}), data.get("leetcode", {}), data.get("tryhackme", {})
+    modes, solved = ch.get("modes", {}), lc.get("solved", {})
+    cols = [
+        ("chessdotcom", "Chess.com", " · ".join(f"{m['rating']} {k.lower()}" for k, m in list(modes.items())[:2])
          + (f" · {ch['puzzles']} puzzles" if ch.get("puzzles") else "")),
         ("leetcode", "LeetCode", f"{sum(solved.get(k, 0) for k in ('Easy', 'Medium', 'Hard'))} solved · "
-                                 f"{solved.get('Easy', 0)} easy · {solved.get('Medium', 0)} medium · {solved.get('Hard', 0)} hard"),
+                                 f"{solved.get('Easy', 0)} easy · {solved.get('Medium', 0)} medium"),
         ("tryhackme", "TryHackMe", f"level {thm.get('level', '—')} · {(thm.get('rank') or '').lower()} · "
-                                   f"{thm.get('completedRoomsNumber', 0)} rooms · {thm.get('badgesNumber', 0)} badges"),
+                                   f"{thm.get('completedRoomsNumber', 0)} rooms"),
     ]
-    for i, (ic, name, text) in enumerate(rows):
-        y = 478 + i * 26
-        c.add(c.fade(logo(os.path.join(ROOT, "assets", "icons", f"{ic}.svg"), R, y - 14, 18, f"el{i}")
-                     + t(R + 26, y, name, "b") + t(R + 108, y, text, "bm"), 400 + i * 60))
+    for i, (ic, name, text) in enumerate(cols):
+        x = 20 + i * 293
+        c.add(c.fade(logo(os.path.join(ROOT, "assets", "icons", f"{ic}.svg"), x, 14, 36, f"ew{i}")
+                     + t(x + 46, 29, name, "b") + t(x + 46, 48, text, "bm"), 100 + i * 80))
     return c.svg()
 
 
@@ -696,6 +766,7 @@ def main():
     refresh("github", lambda: fetch_github_public(stats_token or gh_token), bool(stats_token or gh_token))
     refresh("github_private", lambda: fetch_github_private(stats_token or gh_token),
             bool(stats_token) or ("github_private" not in data and bool(gh_token)))
+    refresh("conker", lambda: fetch_conker(stats_token or gh_token), bool(stats_token or gh_token))
     refresh("leetcode", fetch_leetcode)
     refresh("chess", fetch_chess)
     refresh("tryhackme", fetch_tryhackme)
@@ -717,6 +788,8 @@ def main():
             s = cal_stats(data["github"]["days"])
             write(f"dashboard{suffix}.svg", card_dashboard(data, s, avatar))
             write(f"neofetch{suffix}.svg", card_neofetch(data, s, theme))
+        write(f"about{suffix}.svg", card_about())
+        write(f"elsewhere{suffix}.svg", card_elsewhere(data))
     json.dump(data, open(data_path, "w", encoding="utf-8"), indent=1)
 
 

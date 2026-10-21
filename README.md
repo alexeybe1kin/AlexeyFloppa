@@ -3,6 +3,10 @@
 </p>
 
 <p align="center">
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/about-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/about.svg" alt="About Alexey and his coding journey from C# in 2020 to Conker in 2026" width="100%"/></picture>
+</p>
+
+<p align="center">
   <a href="https://x.com/alexeybe1kin"><img src="assets/icons/x.svg" width="28" alt="X" title="X"/></a>
   <a href="https://www.instagram.com/alexeybe1kin/"><img src="assets/icons/instagram.svg" width="28" alt="Instagram" title="Instagram"/></a>
   <a href="https://www.tiktok.com/@alexeybe1kin"><img src="assets/icons/tiktok.svg" width="28" alt="TikTok" title="TikTok"/></a>
@@ -17,33 +21,9 @@
   <a href="https://tryhackme.com/p/alexeybe1kin"><img src="assets/icons/tryhackme.svg" width="28" alt="TryHackMe" title="TryHackMe"/></a>
 </p>
 
-<details>
-<summary><code>$ man alexeybe1kin</code></summary>
-
-```text
-NAME
-       alexeybe1kin - self-taught developer, 16, Israel
-
-SYNOPSIS
-       alexeybe1kin [--judo] [--flutter] [--python] [--ai]
-
-DESCRIPTION
-       Builds Flutter apps, Python tools and small AI agents.
-       Currently working on Better.io, a calm calendar, habits
-       and tasks app.
-
-HISTORY
-       2020   C#
-       2021   Python, HTML/CSS/JS
-       2022   Unity
-       2024   Dart & Flutter
-       2025   mostly AI
-
-BUGS
-       Generates doge banners when left unsupervised.
-```
-
-</details>
+<p align="center">
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/elsewhere-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/elsewhere.svg" alt="Chess.com, LeetCode and TryHackMe stats" width="100%"/></picture>
+</p>
 
 <p align="center">
   <picture>
