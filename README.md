@@ -3,11 +3,7 @@
 </p>
 
 <p align="center">
-  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/typing-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/typing.svg" alt="Hi, I'm Alexey Belkin" width="100%"/></picture>
-</p>
-
-<p align="center">
-  🐿️ 🇮🇱 🥋 &nbsp;·&nbsp; <b>Alexey Belkin</b>, 16 &nbsp;·&nbsp; self-taught dev &nbsp;·&nbsp; mostly building with AI these days
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/neofetch-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/neofetch.svg" alt="neofetch: alexeybe1kin@github" width="100%"/></picture>
 </p>
 
 <p align="center">
@@ -41,17 +37,34 @@
 </p>
 
 <details>
-<summary><b>🐕 more about me</b></summary>
-<br/>
+<summary><code>$ man alexeybe1kin</code></summary>
 
-- 🇮🇱 16, from Israel · 🥋 judo
-- 🧠 self-taught since 2020: C# → Python → web → Unity → Flutter
-- 🤖 2025–26: mostly AI, building agents, automations and small tools
-- 🌱 building **Better.io**, a calm calendar, habits and tasks app in Flutter
+```text
+NAME
+       alexeybe1kin - self-taught developer, 16, Israel
+
+SYNOPSIS
+       alexeybe1kin [--judo] [--flutter] [--python] [--ai]
+
+DESCRIPTION
+       Builds Flutter apps, Python tools and small AI agents.
+       Currently working on Better.io, a calm calendar, habits
+       and tasks app.
+
+HISTORY
+       2020   C#
+       2021   Python, HTML/CSS/JS
+       2022   Unity
+       2024   Dart & Flutter
+       2025   mostly AI
+
+BUGS
+       Generates doge banners when left unsupervised.
+```
 
 </details>
 
-<h3 align="center">📈 a year on GitHub</h3>
+<h3 align="center"><code>$ git log --since="1 year ago"</code></h3>
 
 <p align="center">
   <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/calendar-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/calendar.svg" alt="contribution calendar" width="100%"/></picture>
@@ -67,7 +80,7 @@
   <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/month-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/month.svg" alt="last 30 days" width="49%"/></picture>
 </p>
 
-<h3 align="center">🧩 off GitHub</h3>
+<h3 align="center"><code>$ ls ~/elsewhere</code></h3>
 
 <p align="center">
   <a href="https://leetcode.com/u/alexeybe1kin/"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/leetcode-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/leetcode.svg" alt="LeetCode stats" width="49%"/></picture></a>
@@ -85,5 +98,5 @@
 <p align="center">
   <img src="https://komarev.com/ghpvc/?username=alexeybe1kin&label=profile%20views&style=flat" alt="profile views"/>
   <br/>
-  <sub>such profile · much wow · stats rebuilt every 6 hours by <a href=".github/workflows/profile-cards.yml">a workflow</a></sub>
+  <sub><code>exit 0</code> · such profile, much wow · stats rebuilt every 6h by <a href=".github/workflows/profile-cards.yml">a cron job</a></sub>
 </p>

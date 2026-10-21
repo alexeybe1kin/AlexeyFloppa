@@ -23,7 +23,6 @@ UA = f"{USER}-profile-cards (+https://github.com/{USER})"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif"
-MONO = "'DejaVu Sans Mono', Menlo, 'Liberation Mono', 'Courier New', monospace"
 # GitHub's own Primer colours, so the cards look like native GitHub boxes.
 # Every card is rendered once per theme; the README picks one with <picture>.
 THEMES = {
@@ -564,54 +563,135 @@ def card_chess(ch, upd):
     return c.svg()
 
 
-def card_typing(lines):
-    """Monospace typewriter that cycles through lines (SMIL, works in <img>)."""
-    W, H, fs = 880, 64, 22
-    cw = fs * 0.6
-    tch, hold, dch, gap = 0.07, 1.8, 0.035, 0.35
-    segs, tt = [], 0.0
-    for ln in lines:
-        k = len(ln)
-        segs.append((tt, k))
-        tt += k * tch + hold + k * dch + gap
-    T = tt
-    parts = []
-    cur_times, cur_x = [0.0], [W / 2]
-    for idx, (ln, (s, k)) in enumerate(zip(lines, segs)):
-        x0 = (W - k * cw) / 2
-        times, widths = [0.0], [0]
-        steps = [(s + j * tch, j) for j in range(1, k + 1)]
-        steps += [(s + k * tch + hold + j * dch, k - j) for j in range(1, k + 1)]
-        for tm, j in steps:
-            times.append(tm / T)
-            widths.append(j * cw)
-            cur_times.append(tm / T)
-            cur_x.append(x0 + j * cw)
-        times.append(1.0)
-        widths.append(0)
-        kt = ";".join(f"{v:.5f}" for v in times)
-        vw = ";".join(f"{v:.1f}" for v in widths)
-        parts.append(f'<clipPath id="c{idx}"><rect x="{x0:.1f}" y="0" width="0" height="{H}">'
-                     f'<animate attributeName="width" values="{vw}" keyTimes="{kt}" dur="{T:.2f}s" calcMode="discrete" repeatCount="indefinite"/></rect></clipPath>')
-        parts.append(f'<text x="{x0:.1f}" y="{H / 2 + fs * 0.35:.1f}" clip-path="url(#c{idx})" textLength="{k * cw:.1f}" '
-                     f'lengthAdjust="spacingAndGlyphs" style="font:600 {fs}px {MONO};fill:{C["text"]}">{escape(ln)}</text>')
-    order = sorted(zip(cur_times, cur_x))
-    kt = ";".join(f"{a:.5f}" for a, _ in order) + ";1"
-    vx = ";".join(f"{b:.1f}" for _, b in order) + f";{order[-1][1]:.1f}"
-    parts.append(f'<rect y="{H / 2 - fs * 0.55:.1f}" width="2.5" height="{fs * 1.1:.1f}" fill="{C["accent"]}" x="{W / 2}">'
-                 f'<animate attributeName="x" values="{vx}" keyTimes="{kt}" dur="{T:.2f}s" calcMode="discrete" repeatCount="indefinite"/>'
-                 f'<animate attributeName="opacity" values="1;0;1" dur="0.9s" repeatCount="indefinite"/></rect>')
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img">'
-            + "".join(parts) + "</svg>\n")
-
-
-TYPING = [
-    "Hi, I'm Alexey Belkin",
-    "16 y/o self-taught developer",
-    "Flutter · Python · C# · AI tools",
-    "judo on the mat, code at the desk",
-    "such code. much wow.",
+# Pixel shiba for the neofetch card. Tones: + outline, o fur, x inner ear,
+# . white fur, # eyes/nose/mouth. Drawn as dither patterns, so it looks like
+# ANSI shade art (░▒▓█) but renders the same in every browser.
+DOGE = [
+    '',
+    '       +                  +',
+    '       +                  +',
+    '       ++                ++',
+    '       +o+              +o+',
+    '      +oxo+            +oxo+',
+    '      +oxxo++++++++++++oxxo+',
+    '      +xxxxooooooooooooxxxx+',
+    '      +xxxxooooooooooooxxxx+',
+    '     +oxxxxxooooooooooxxxxxo+',
+    '     +oxxx..oooooooooo..xxxo+',
+    '     +oxxo..oooooooooo..oxxo+',
+    '     +oooooooooooooooooooooo+',
+    '    +oooo##...oooooo##...oooo+',
+    '   +ooooo##...oooooo##...ooooo+',
+    '  +oooooooooooooooooooooooooooo+',
+    '  +oooooooooo........oooooooooo+',
+    '  +oo....oo.....##.....oo....oo+',
+    '  +o...........####...........o+',
+    '  +............####............+',
+    '  +.............##.............+',
+    '   +........##......##........+',
+    '    +.........######.........+',
+    '     ++..oo............oo..++',
+    '       +++ooo........ooo+++',
+    '          +++++oooo+++++',
+    '               ++++',
 ]
+# Shade per tone and theme: 1 solid, .75/.5/.25 dither, 0 empty. Dark mode
+# lights the white fur; light mode inks the outline and features.
+SHADES = {
+    "dark": {"+": 0.75, "o": 0.5, "x": 0.25, ".": 1, "#": 0},
+    "light": {"+": 1, "o": 0.5, "x": 0.75, ".": 0.25, "#": 1},
+}
+
+
+def card_neofetch(data, s, theme):
+    W, H = 880, 440
+    c = Card(W, H)
+    g, p = data.get("github", {}), data.get("github_private", {})
+    ch, lc = data.get("chess", {}), data.get("leetcode", {})
+    mono = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace"
+    c.css.append(f".m{{font:400 13px {mono};fill:{C['text']}}}.k{{font:600 13px {mono};fill:{C['accent']}}}"
+                 f".pr{{font:400 13px {mono};fill:{C['green']}}}.pa{{font:400 13px {mono};fill:{C['accent']}}}"
+                 f".mt{{font:400 12px {FONT};fill:{C['muted']}}}"
+                 ".cur{animation:blink 1.1s steps(1) infinite}@keyframes blink{50%{opacity:0}}")
+
+    # window chrome
+    c.add(f'<path d="M0.5,36 V6.5 A6,6 0 0 1 6.5,0.5 H{W - 6.5} A6,6 0 0 1 {W - 0.5},6.5 V36 Z" fill="{C["box"]}"/>'
+          f'<line x1="0.5" y1="36" x2="{W - 0.5}" y2="36" stroke="{C["line"]}"/>')
+    for i in range(3):
+        c.add(f'<circle cx="{20 + i * 18}" cy="18" r="5.5" fill="none" stroke="{C["faint"]}"/>')
+    c.add(t(W / 2, 23, "alexey@belkin: ~", "mt", "middle"))
+
+    def prompt(y, cmd):
+        return (f'<text x="24" y="{y}" xml:space="preserve"><tspan class="pr">alexey@belkin</tspan>'
+                f'<tspan class="m">:</tspan><tspan class="pa">~</tspan><tspan class="m">$ {escape(cmd)}</tspan></text>')
+
+    c.add(prompt(66, "neofetch"))
+
+    # the doge
+    px, x0, y0 = 9, 34, 96
+    pat = []
+    for name, cells in (("d25", ((0, 0),)), ("d50", ((0, 0), (2, 2))), ("d75", ((0, 0), (2, 2), (2, 0)))):
+        rects = "".join(f'<rect x="{a}" y="{b}" width="2" height="2" fill="{C["text"]}"/>' for a, b in cells)
+        pat.append(f'<pattern id="{name}" width="4" height="4" patternUnits="userSpaceOnUse">{rects}</pattern>')
+    fills = {1: C["text"], 0.75: "url(#d75)", 0.5: "url(#d50)", 0.25: "url(#d25)"}
+    shade = SHADES[theme]
+    art = []
+    for row, line in enumerate(DOGE):
+        col = 0
+        while col < len(line):
+            ch_ = line[col]
+            run = 1
+            while col + run < len(line) and line[col + run] == ch_:
+                run += 1
+            v = shade.get(ch_, 0)
+            if ch_ != " " and v:
+                art.append(f'<rect x="{x0 + col * px}" y="{y0 + row * px}" width="{run * px}" height="{px}" fill="{fills[v]}"/>')
+            col += run
+    c.add("<defs>" + "".join(pat) + "</defs>")
+    c.add(c.fade('<g shape-rendering="crispEdges">' + "".join(art) + "</g>", 150))
+
+    # system info
+    created = g.get("created_at")
+    if created:
+        j = dt.date.fromisoformat(created[:10])
+        months = (TODAY.year - j.year) * 12 + TODAY.month - j.month - (TODAY.day < j.day)
+        uptime = (f"{months // 12} year{'s' * (months // 12 != 1)}, " if months >= 12 else "") + \
+                 f"{months % 12} month{'s' * (months % 12 != 1)}"
+    else:
+        uptime = "since 2025"
+    modes = ch.get("modes", {})
+    rows = [
+        ("OS", "Israel x86_64"),
+        ("Host", "Alexey Belkin, 16"),
+        ("Kernel", "self-taught 2020-lts"),
+        ("Uptime", f"{uptime} on GitHub"),
+        ("Packages", f"{n(p.get('commits', 0))} commits, {p.get('repos', 0)} repos (git)"),
+        ("Shell", "python, dart, c#"),
+        ("DE", "Flutter"),
+        ("WM", "judo"),
+        ("Theme", f"doge [{theme}]"),
+        ("CPU", "AI agents (overclocked)"),
+        ("Memory", f"{n(s['total'])} contributions / {s['len']} days" if s else "—"),
+        ("Streak", f"{s['current']} days (best {s['longest']})" if s else "—"),
+        ("Chess", " · ".join(f"{m['rating']} {k.lower()}" for k, m in list(modes.items())[:2]) or "—"),
+        ("LeetCode", f"{sum(lc.get('solved', {}).get(k, 0) for k in ('Easy', 'Medium', 'Hard'))} solved"),
+        ("Status", "such code. much wow."),
+    ]
+    xk, xv, y = 380, 470, 100
+    head = (f'<text x="{xk}" y="{y}"><tspan class="k">alexeybe1kin</tspan><tspan class="m">@</tspan>'
+            f'<tspan class="k">github</tspan></text>'
+            f'<text x="{xk}" y="{y + 17}" class="m">{"-" * 19}</text>')
+    c.add(c.fade(head, 200))
+    for i, (k, v) in enumerate(rows):
+        yy = y + 34 + i * 17
+        c.add(c.fade(t(xk, yy, f"{k}:", "k") + t(xv, yy, v, "m"), 250 + i * 45))
+    by = y + 34 + len(rows) * 17 + 2
+    blocks = HEAT + [C["gray"], C["text"]]
+    c.add(c.fade("".join(f'<rect x="{xk + i * 24}" y="{by}" width="22" height="14" fill="{col}"/>'
+                         for i, col in enumerate(blocks)), 250 + len(rows) * 45))
+    c.add(prompt(H - 22, ""))
+    c.add(f'<rect class="cur" x="{24 + 7.8 * 16:.1f}" y="{H - 34}" width="8" height="15" fill="{C["text"]}"/>')
+    return c.svg()
 
 
 # ------------------------------------------------------------------- main ---
@@ -658,6 +738,9 @@ def main():
         open(os.path.join(cards, name), "w", encoding="utf-8").write(svg)
         print("  wrote", name)
 
+    for f in os.listdir(cards):
+        if f.endswith(".svg"):
+            os.remove(os.path.join(cards, f))
     # name.svg is the dark-theme card, name-light.svg the light-theme one.
     for theme, suffix in (("dark", ""), ("light", "-light")):
         use_theme(theme)
@@ -681,7 +764,8 @@ def main():
             write(f"chess{suffix}.svg", card_chess(data["chess"], data["chess"]["updated"]))
         if "tryhackme" in data:
             write(f"tryhackme{suffix}.svg", card_thm(data["tryhackme"], data["tryhackme"]["updated"]))
-        write(f"typing{suffix}.svg", card_typing(TYPING))
+        if "github" in data:
+            write(f"neofetch{suffix}.svg", card_neofetch(data, cal_stats(data["github"]["days"]), theme))
     json.dump(data, open(data_path, "w", encoding="utf-8"), indent=1)
 
 
