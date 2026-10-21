@@ -24,12 +24,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 FONT = "'Segoe UI', Ubuntu, 'Helvetica Neue', Helvetica, Arial, sans-serif"
 MONO = "'DejaVu Sans Mono', Menlo, 'Liberation Mono', 'Courier New', monospace"
+# One flat orange-gold palette, no gradients anywhere.
 C = {
-    "title": "#ffc94d", "text": "#fbeedb", "muted": "#a8916f", "faint": "#6e5a42",
+    "bg": "#15110c", "title": "#ffc94d", "text": "#fbeedb", "muted": "#a8916f", "faint": "#6e5a42",
     "track": "#2e2217", "line": "#3d2b17", "grid": "#2a1f15",
-    "gold": "#ffc94d", "orange": "#ff8a3d", "green": "#6fd08c", "red": "#ff6b5b",
+    "pale": "#ffe3a1", "gold": "#ffc94d", "amber": "#f4a62a", "orange": "#ff8a3d", "deep": "#d9620c",
+    "brown": "#8a5a12", "dim": "#5c3d17",
 }
 HEAT = ["#241a11", "#523612", "#94600f", "#dc8f15", "#ffcc52"]
+SERIES = [C["gold"], C["orange"], C["pale"], C["deep"], C["amber"], C["brown"]]
 
 
 # --------------------------------------------------------------- fetching ---
@@ -193,15 +196,8 @@ class Card:
 {''.join(self.css)}
 @media (prefers-reduced-motion:reduce){{.fade{{animation:none;opacity:1}}*{{animation:none!important}}}}"""
         return f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{w}" height="{h}" viewBox="0 0 {w} {h}" fill="none" role="img">
-<defs>
-<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c130b"/><stop offset="1" stop-color="#110c08"/></linearGradient>
-<radialGradient id="glow" cx="0.12" cy="0" r="0.9"><stop offset="0" stop-color="#ffb02e" stop-opacity="0.13"/><stop offset="1" stop-color="#ffb02e" stop-opacity="0"/></radialGradient>
-<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd768"/><stop offset="1" stop-color="#ff8a3d"/></linearGradient>
-<linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb02e" stop-opacity="0.55"/><stop offset="1" stop-color="#ffb02e" stop-opacity="0"/></linearGradient>
-</defs>
 <style>{css}</style>
-<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="14" fill="url(#bg)" stroke="{C['line']}"/>
-<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="14" fill="url(#glow)"/>
+<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="14" fill="{C['bg']}" stroke="{C['line']}"/>
 {''.join(self.parts)}
 </svg>
 """
@@ -306,13 +302,13 @@ def card_rings(s, upd):
     c = Card(880, 200, "Streaks & habits", "last 12 months", upd)
     tiles = [
         ("Active days", s["active"], s["active"] / s["len"], C["gold"], f"of {s['len']} days"),
-        ("Current streak", s["current"], s["current"] / max(1, s["longest"]), "url(#gold)",
+        ("Current streak", s["current"], s["current"] / max(1, s["longest"]), C["amber"],
          f"{fdate(s['current_range'][0], False)} – today" if s["current"] else "starts today"),
         ("Longest streak", s["longest"], 1.0 if s["longest"] else 0, C["orange"],
          f"{fdate(s['longest_range'][0], False)} – {fdate(s['longest_range'][1], False)}" if s["longest"] else "—"),
-        ("Longest break", s["gap"], s["gap"] / s["len"], C["red"],
+        ("Longest break", s["gap"], s["gap"] / s["len"], C["deep"],
          f"{fdate(s['gap_range'][0], False)} – {fdate(s['gap_range'][1], False)}" if s["gap"] else "never stopped"),
-        ("Weekend share", f"{round(s['weekend_pct'] * 100)}%", s["weekend_pct"], C["green"], "of all contributions"),
+        ("Weekend share", f"{round(s['weekend_pct'] * 100)}%", s["weekend_pct"], C["pale"], "of all contributions"),
     ]
     tw = 880 / 5
     for i, (lab, val, frac, col, sub) in enumerate(tiles):
@@ -371,10 +367,10 @@ def card_activity(s_days, upd):
         return d
 
     line = smooth_path(pts)
-    c.add(c.fade(f'<path d="{line} L{x1},{y1} L{x0},{y1} Z" fill="url(#area)"/>', 300))
+    c.add(c.fade(f'<path d="{line} L{x1},{y1} L{x0},{y1} Z" fill="#ffc94d" fill-opacity="0.12"/>', 300))
     c.css.append(".draw{stroke-dasharray:2400;stroke-dashoffset:2400;animation:draw 1.8s ease-out .2s forwards}"
                  "@keyframes draw{to{stroke-dashoffset:0}}")
-    c.add(f'<path class="draw" d="{line}" stroke="url(#gold)" stroke-width="2.5" fill="none" stroke-linejoin="round"/>')
+    c.add(f'<path class="draw" d="{line}" stroke="#ffc94d" stroke-width="2.5" fill="none" stroke-linejoin="round"/>')
     last_m, last_x = None, -99
     for i, (d, _) in enumerate(weeks):
         dd = dt.date.fromisoformat(d)
@@ -386,7 +382,7 @@ def card_activity(s_days, upd):
             last_x = pts[i][0]
     bi = max(range(len(weeks)), key=lambda k: weeks[k][1])
     bx, by = pts[bi]
-    c.add(c.fade(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="5" fill="{C["gold"]}" stroke="#1c130b" stroke-width="2"/>'
+    c.add(c.fade(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="5" fill="{C["gold"]}" stroke="#15110c" stroke-width="2"/>'
                  + t(bx, by - 12, f"{n(weeks[bi][1])} · week of {fdate(weeks[bi][0], False)}", "sm",
                      "end" if bx > 700 else "middle"), 1600))
     return c.svg()
@@ -403,7 +399,7 @@ def card_stats(p, g, upd, avatar):
         c.add(c.fade(t(24, y, lab, "lab") + (t(24 + 7.2 * len(lab) + 8, y, hint, "tiny") if hint else "")
                      + t(236, y, n(val), "val", "end"), 100 + i * 80))
     cx, cy = 334, 112
-    ring = c.ring(cx, cy, 52, score, 7, "url(#gold)", 300)
+    ring = c.ring(cx, cy, 52, score, 7, C["gold"], 300)
     clip = f'<clipPath id="av"><circle cx="{cx}" cy="{cy}" r="42"/></clipPath>'
     img = (f'<image href="data:image/png;base64,{avatar}" x="{cx - 42}" y="{cy - 42}" width="84" height="84" '
            f'clip-path="url(#av)" preserveAspectRatio="xMidYMid slice"/>' if avatar else "")
@@ -419,16 +415,16 @@ def card_languages(p, upd):
     c = Card(430, 214, "Languages", "by repository", upd)
     x, y, w = 24, 60, 382
     bar = ""
-    for name, v in langs:
+    for i, (name, v) in enumerate(langs):
         bw = w * v["repos"] / total
-        bar += f'<rect x="{x:.1f}" y="{y}" width="{max(bw - 2, 1):.1f}" height="12" rx="3" fill="{v["color"]}"/>'
+        bar += f'<rect x="{x:.1f}" y="{y}" width="{max(bw - 2, 1):.1f}" height="12" rx="3" fill="{SERIES[i % len(SERIES)]}"/>'
         x += bw
     c.add(c.fade(f'<clipPath id="lb"><rect x="24" y="{y}" width="{w}" height="12" rx="6"/></clipPath><g clip-path="url(#lb)">{bar}</g>', 150))
     for i, (name, v) in enumerate(langs):
         col, row = i % 2, i // 2
         lx, ly = 24 + col * 196, 104 + row * 30
         pct = 100 * v["repos"] / total
-        c.add(c.fade(f'<circle cx="{lx + 6}" cy="{ly - 4}" r="6" fill="{v["color"]}"/>'
+        c.add(c.fade(f'<circle cx="{lx + 6}" cy="{ly - 4}" r="6" fill="{SERIES[i % len(SERIES)]}"/>'
                      + t(lx + 20, ly, name, "val") + t(lx + 182, ly, f"{pct:.0f}%", "lab", "end"), 250 + i * 90))
     return c.svg()
 
@@ -442,7 +438,7 @@ def card_rhythm(s, upd):
     for i, v in enumerate(vals):
         h = max(3, hmax * v / top)
         x = x0 + i * (bw + gap)
-        col = "url(#gold)" if v == top else ("#8a5a1a" if i >= 5 else "#5e4020")
+        col = C["gold"] if v == top else (C["brown"] if i >= 5 else C["dim"])
         self_css = f"g{i}"
         c.css.append(f".{self_css}{{transform-origin:{x + bw / 2}px {base}px;animation:grow{i} .9s ease-out {150 + i * 90}ms both}}"
                      f"@keyframes grow{i}{{from{{transform:scaleY(0)}}to{{transform:scaleY(1)}}}}")
@@ -457,9 +453,9 @@ def card_month(s, upd):
 
     def delta(a, b):
         if not b:
-            return ("new", C["green"])
+            return ("new", C["pale"])
         pct = (a - b) / b * 100
-        return (f"{'+' if pct >= 0 else ''}{pct:.0f}% vs previous 30", C["green"] if pct >= 0 else C["red"])
+        return (f"{'+' if pct >= 0 else ''}{pct:.0f}% vs previous 30", C["pale"] if pct >= 0 else C["orange"])
 
     d1, c1 = delta(s["m_total"], s["m_prev"])
     c.add(c.fade(t(24, 66, "Contributions", "lab") + t(24, 98, n(s["m_total"]), "big")
@@ -472,7 +468,7 @@ def card_month(s, upd):
     bw = 382 / len(vals)
     bars = "".join(
         f'<rect x="{24 + i * bw:.1f}" y="{186 - max(2, 46 * v / top):.1f}" width="{bw - 3:.1f}" height="{max(2, 46 * v / top):.1f}" rx="2" '
-        f'fill="{HEAT[0] if v == 0 else (C["gold"] if v == top else "#b9741a")}"/>' for i, v in enumerate(vals))
+        f'fill="{HEAT[0] if v == 0 else (C["gold"] if v == top else C["amber"])}"/>' for i, v in enumerate(vals))
     c.add(c.fade(bars, 350))
     return c.svg()
 
@@ -484,7 +480,7 @@ def card_leetcode(l, upd):
     cx, cy, r = 100, 122, 52
     circ = 2 * math.pi * r
     segs, acc = "", 0.0
-    for val, col in ((e, "#4cc38a"), (m, "#ffb52e"), (h, "#ff5d5d")):
+    for val, col in ((e, C["pale"]), (m, C["gold"]), (h, C["orange"])):
         if not val:
             continue
         frac = val / tot
@@ -495,7 +491,7 @@ def card_leetcode(l, upd):
         acc += L
     ring = f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{C["track"]}" stroke-width="10"/>' + segs
     c.add(c.fade(ring + t(cx, cy + 6, n(tot), "big", "middle") + t(cx, cy + 26, "solved", "sm", "middle"), 150))
-    for i, (lab, val, col) in enumerate((("Easy", e, "#4cc38a"), ("Medium", m, "#ffb52e"), ("Hard", h, "#ff5d5d"))):
+    for i, (lab, val, col) in enumerate((("Easy", e, C["pale"]), ("Medium", m, C["gold"]), ("Hard", h, C["orange"]))):
         y = 76 + i * 40
         totq = l["total"].get(lab, 1)
         w = 230 * min(1, val / totq * 8)  # 8x zoom so early progress is visible
@@ -513,7 +509,7 @@ def card_thm(m, upd):
     c = Card(430, 214, "TryHackMe", f"{m.get('rank') or ''} · {tier} league".strip(" ·"), upd)
     cx, cy = 92, 120
     hexa = " ".join(f"{cx + 54 * math.cos(math.radians(a)):.1f},{cy + 54 * math.sin(math.radians(a)):.1f}" for a in range(-90, 270, 60))
-    c.add(c.fade(f'<polygon points="{hexa}" fill="#2a1410" stroke="#ff5d5d" stroke-width="3" stroke-linejoin="round"/>'
+    c.add(c.fade(f'<polygon points="{hexa}" fill="#24170b" stroke="#ff8a3d" stroke-width="3" stroke-linejoin="round"/>'
                  + t(cx, cy - 8, "LEVEL", "sm", "middle", 'style="letter-spacing:2px"')
                  + t(cx, cy + 24, m.get("level", "—"), "big", "middle", 'style="font-size:34px"'), 150))
     stats = [("Points", m.get("totalPoints")), ("Rooms", m.get("completedRoomsNumber")),
@@ -537,9 +533,9 @@ def card_chess(ch, upd):
         wpx, dpx = 128 * m["win"] / games, 128 * m["draw"] / games
         g = (t(x, 72, f"{icons.get(name, '')} {name}", "lab") + t(x, 106, m["rating"], "big")
              + t(x, 126, f"best {m['best']}" if m.get("best") else "", "sm")
-             + f'<rect x="{x}" y="146" width="128" height="8" rx="4" fill="#7a3a33"/>'
-             + f'<rect x="{x}" y="146" width="{wpx + dpx:.1f}" height="8" rx="4" fill="#8b7b66"/>'
-             + f'<rect x="{x}" y="146" width="{wpx:.1f}" height="8" rx="4" fill="{C["green"]}"/>'
+             + f'<rect x="{x}" y="146" width="128" height="8" rx="4" fill="{C["dim"]}"/>'
+             + f'<rect x="{x}" y="146" width="{wpx + dpx:.1f}" height="8" rx="4" fill="{C["brown"]}"/>'
+             + f'<rect x="{x}" y="146" width="{wpx:.1f}" height="8" rx="4" fill="{C["gold"]}"/>'
              + t(x, 172, f"{n(m['win'])}W · {n(m['loss'])}L · {n(m['draw'])}D", "sm")
              + t(x, 190, f"{100 * m['win'] / games:.0f}% wins · {n(games)} games", "tiny"))
         if i:

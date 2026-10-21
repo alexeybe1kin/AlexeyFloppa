@@ -11,23 +11,30 @@
 </p>
 
 <p align="center">
-  <a href="https://x.com/alexeybe1kin"><img src="https://img.shields.io/badge/X-1c140d?style=for-the-badge&logo=x&logoColor=white" alt="X"/></a>
-  <a href="https://www.instagram.com/alexeybe1kin/"><img src="https://img.shields.io/badge/Instagram-1c140d?style=for-the-badge&logo=instagram&logoColor=E4405F" alt="Instagram"/></a>
-  <a href="https://www.tiktok.com/@alexeybe1kin"><img src="https://img.shields.io/badge/TikTok-1c140d?style=for-the-badge&logo=tiktok&logoColor=white" alt="TikTok"/></a>
-  <a href="https://www.threads.com/@alexeybe1kin"><img src="https://img.shields.io/badge/Threads-1c140d?style=for-the-badge&logo=threads&logoColor=white" alt="Threads"/></a>
-  <a href="https://t.me/alexeybe1kin"><img src="https://img.shields.io/badge/Telegram-1c140d?style=for-the-badge&logo=telegram&logoColor=26A5E4" alt="Telegram"/></a>
-  <a href="https://www.facebook.com/alexeybe1kin"><img src="https://img.shields.io/badge/Facebook-1c140d?style=for-the-badge&logo=facebook&logoColor=0866FF" alt="Facebook"/></a>
-  <a href="https://soundcloud.com/alexeybe1kin"><img src="https://img.shields.io/badge/SoundCloud-1c140d?style=for-the-badge&logo=soundcloud&logoColor=FF5500" alt="SoundCloud"/></a>
-  <a href="https://www.pinterest.com/alexeybe1kin/"><img src="https://img.shields.io/badge/Pinterest-1c140d?style=for-the-badge&logo=pinterest&logoColor=E60023" alt="Pinterest"/></a>
-  <a href="mailto:alexeydevelopacc@gmail.com"><img src="https://img.shields.io/badge/Email-1c140d?style=for-the-badge&logo=gmail&logoColor=EA4335" alt="Email"/></a>
-  <br/>
-  <a href="https://www.chess.com/member/alexeybe1kin"><img src="https://img.shields.io/badge/Chess.com-1c140d?style=for-the-badge&logo=chessdotcom&logoColor=81B64C" alt="Chess.com"/></a>
-  <a href="https://leetcode.com/u/alexeybe1kin/"><img src="https://img.shields.io/badge/LeetCode-1c140d?style=for-the-badge&logo=leetcode&logoColor=FFA116" alt="LeetCode"/></a>
-  <a href="https://tryhackme.com/p/alexeybe1kin"><img src="https://img.shields.io/badge/TryHackMe-1c140d?style=for-the-badge&logo=tryhackme&logoColor=FF4A4A" alt="TryHackMe"/></a>
+  <a href="https://x.com/alexeybe1kin"><img src="assets/icons/x.svg" width="48" alt="X" title="X"/></a>
+  <a href="https://www.instagram.com/alexeybe1kin/"><img src="assets/icons/instagram.svg" width="48" alt="Instagram" title="Instagram"/></a>
+  <a href="https://www.tiktok.com/@alexeybe1kin"><img src="assets/icons/tiktok.svg" width="48" alt="TikTok" title="TikTok"/></a>
+  <a href="https://www.threads.com/@alexeybe1kin"><img src="assets/icons/threads.svg" width="48" alt="Threads" title="Threads"/></a>
+  <a href="https://t.me/alexeybe1kin"><img src="assets/icons/telegram.svg" width="48" alt="Telegram" title="Telegram"/></a>
+  <a href="https://www.facebook.com/alexeybe1kin"><img src="assets/icons/facebook.svg" width="48" alt="Facebook" title="Facebook"/></a>
+  <a href="https://soundcloud.com/alexeybe1kin"><img src="assets/icons/soundcloud.svg" width="48" alt="SoundCloud" title="SoundCloud"/></a>
+  <a href="https://www.pinterest.com/alexeybe1kin/"><img src="assets/icons/pinterest.svg" width="48" alt="Pinterest" title="Pinterest"/></a>
+  <a href="mailto:alexeydevelopacc@gmail.com"><img src="assets/icons/gmail.svg" width="48" alt="Email" title="Email"/></a>
+  <a href="https://www.chess.com/member/alexeybe1kin"><img src="assets/icons/chessdotcom.svg" width="48" alt="Chess.com" title="Chess.com"/></a>
+  <a href="https://leetcode.com/u/alexeybe1kin/"><img src="assets/icons/leetcode.svg" width="48" alt="LeetCode" title="LeetCode"/></a>
+  <a href="https://tryhackme.com/p/alexeybe1kin"><img src="assets/icons/tryhackme.svg" width="48" alt="TryHackMe" title="TryHackMe"/></a>
 </p>
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=dart,flutter,python,cs,unity,html,css,js,git&theme=dark" alt="Dart, Flutter, Python, C#, Unity, HTML, CSS, JavaScript, Git"/>
+  <img src="https://skillicons.dev/icons?i=dart&theme=dark" width="48" alt="Dart" title="Dart"/>
+  <img src="https://skillicons.dev/icons?i=flutter&theme=dark" width="48" alt="Flutter" title="Flutter"/>
+  <img src="https://skillicons.dev/icons?i=python&theme=dark" width="48" alt="Python" title="Python"/>
+  <img src="https://skillicons.dev/icons?i=cs&theme=dark" width="48" alt="C#" title="C#"/>
+  <img src="https://skillicons.dev/icons?i=unity&theme=dark" width="48" alt="Unity" title="Unity"/>
+  <img src="https://skillicons.dev/icons?i=html&theme=dark" width="48" alt="HTML" title="HTML"/>
+  <img src="https://skillicons.dev/icons?i=css&theme=dark" width="48" alt="CSS" title="CSS"/>
+  <img src="https://skillicons.dev/icons?i=js&theme=dark" width="48" alt="JavaScript" title="JavaScript"/>
+  <img src="https://skillicons.dev/icons?i=git&theme=dark" width="48" alt="Git" title="Git"/>
 </p>
 
 <details>
@@ -70,10 +77,6 @@
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/snake/snake-dark.svg"/>
     <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/snake/snake.svg" alt="contribution snake" width="100%"/>
   </picture>
-</p>
-
-<p align="center">
-  <img src="assets/footer.jpg" alt="" width="100%"/>
 </p>
 
 <p align="center">
