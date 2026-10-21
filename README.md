@@ -20,6 +20,9 @@
   <a href="https://soundcloud.com/alexeybe1kin"><img src="assets/icons/soundcloud.svg" width="48" alt="SoundCloud" title="SoundCloud"/></a>
   <a href="https://www.pinterest.com/alexeybe1kin/"><img src="assets/icons/pinterest.svg" width="48" alt="Pinterest" title="Pinterest"/></a>
   <a href="mailto:alexeydevelopacc@gmail.com"><img src="assets/icons/gmail.svg" width="48" alt="Email" title="Email"/></a>
+</p>
+
+<p align="center">
   <a href="https://www.chess.com/member/alexeybe1kin"><img src="assets/icons/chessdotcom.svg" width="48" alt="Chess.com" title="Chess.com"/></a>
   <a href="https://leetcode.com/u/alexeybe1kin/"><img src="assets/icons/leetcode.svg" width="48" alt="LeetCode" title="LeetCode"/></a>
   <a href="https://tryhackme.com/p/alexeybe1kin"><img src="assets/icons/tryhackme.svg" width="48" alt="TryHackMe" title="TryHackMe"/></a>
