@@ -1,13 +1,15 @@
 """Build the profile's stat cards as SVGs from live data.
 
-Sources: GitHub GraphQL, LeetCode, Chess.com and TryHackMe. Every source is
+Two cards, each in a dark and a light version: a metrics-style dashboard and a
+neofetch-style terminal. Sources: GitHub GraphQL, LeetCode, Chess.com and
+TryHackMe. Every source is
 optional: when one fails (rate limit, bot wall, outage) its last good data is
 reused from data.json, so a bad run never blanks a card.
 
 usage: python scripts/build_cards.py <out_dir> [--seed-thm thm.json]
 env:   GITHUB_TOKEN  public data (contribution calendar, followers)
        STATS_TOKEN   optional token that can see private repos; without it the
-                     stats/languages cards keep their last saved values
+                     repo stats, languages and commit hours keep their saved values
 """
 import base64
 import datetime as dt
@@ -58,12 +60,57 @@ def http(url, data=None, headers=None):
         return json.load(r)
 
 
-def gh_graphql(token, query):
-    j = http("https://api.github.com/graphql", json.dumps({"query": query}).encode(),
+def gh_graphql(token, query, variables=None):
+    j = http("https://api.github.com/graphql", json.dumps({"query": query, "variables": variables or {}}).encode(),
              {"Authorization": f"bearer {token}", "Content-Type": "application/json"})
     if j.get("errors"):
         raise RuntimeError(j["errors"][0].get("message"))
     return j["data"]
+
+
+def israel_hour(stamp):
+    """Local hour in Israel for an ISO UTC timestamp."""
+    t_utc = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    try:
+        from zoneinfo import ZoneInfo
+        return t_utc.astimezone(ZoneInfo("Asia/Jerusalem")).hour
+    except Exception:  # noqa: BLE001  (no tz database: Israel DST rule by hand)
+        import calendar
+
+        def last_sunday(y, m):
+            last = dt.date(y, m, calendar.monthrange(y, m)[1])
+            return last - dt.timedelta(days=(last.weekday() + 1) % 7)
+
+        d = t_utc.date()
+        summer = last_sunday(d.year, 3) - dt.timedelta(days=2) <= d < last_sunday(d.year, 10)
+        return (t_utc + dt.timedelta(hours=3 if summer else 2)).hour
+
+
+def fetch_commit_hours(token):
+    """Commits per local hour over the last year, across every repo committed to."""
+    since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    d = gh_graphql(token, f"""query{{user(login:"{USER}"){{id contributionsCollection{{
+        commitContributionsByRepository(maxRepositories:100){{repository{{name owner{{login}}}}}}}}}}}}""")["user"]
+    repos = [(r["repository"]["owner"]["login"], r["repository"]["name"])
+             for r in d["contributionsCollection"]["commitContributionsByRepository"]]
+    q = """query($o:String!,$n:String!,$id:ID!,$since:GitTimestamp!,$after:String){repository(owner:$o,name:$n){
+        defaultBranchRef{target{... on Commit{history(first:100,after:$after,author:{id:$id},since:$since){
+        pageInfo{hasNextPage endCursor} nodes{committedDate}}}}}}}"""
+    hours = [0] * 24
+    for owner, name in repos:
+        after = None
+        for _ in range(20):
+            r = gh_graphql(token, q, {"o": owner, "n": name, "id": d["id"], "since": since, "after": after})
+            ref = (r["repository"] or {}).get("defaultBranchRef")
+            if not ref:
+                break
+            h = ref["target"]["history"]
+            for node in h["nodes"]:
+                hours[israel_hour(node["committedDate"])] += 1
+            if not h["pageInfo"]["hasNextPage"]:
+                break
+            after = h["pageInfo"]["endCursor"]
+    return hours, len(repos)
 
 
 def fetch_github_public(token):
@@ -93,12 +140,13 @@ def fetch_github_private(token):
             x["repos"] += 1
             x["bytes"] += e["size"]
     cc = d["contributionsCollection"]
+    hours, contributed = fetch_commit_hours(token)
     return {  # counts only: no private repo names are stored
         "commits": cc["totalCommitContributions"], "reviews": cc["totalPullRequestReviewContributions"],
         "prs": d["pullRequests"]["totalCount"], "issues": d["issues"]["totalCount"],
         "repos": d["repositories"]["totalCount"],
         "stars": sum(r["stargazerCount"] for r in d["repositories"]["nodes"]),
-        "languages": langs,
+        "languages": langs, "hours": hours, "contributed_to": contributed,
     }
 
 
@@ -163,8 +211,9 @@ TODAY = dt.datetime.now(dt.timezone.utc).date()
 
 
 class Card:
-    def __init__(self, w, h, title=None, sub=None, updated=None):
+    def __init__(self, w, h, title=None, sub=None, updated=None, border=True):
         self.w, self.h, self.parts, self.css, self.k = w, h, [], [], 0
+        self.border = border
         if title:
             self.parts.append(t(24, 34, title, "title"))
         # Only flag data that has gone stale (its source kept failing).
@@ -211,7 +260,7 @@ class Card:
 @media (prefers-reduced-motion:reduce){{.fade{{animation:none;opacity:1}}*{{animation:none!important}}}}"""
         return f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{w}" height="{h}" viewBox="0 0 {w} {h}" fill="none" role="img">
 <style>{css}</style>
-<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="6" fill="{C['bg']}" stroke="{C['line']}"/>
+<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="6" fill="{C['bg']}" stroke="{C['line'] if self.border else C['bg']}"/>
 {''.join(self.parts)}
 </svg>
 """
@@ -282,286 +331,6 @@ def grade(p):
 
 
 # ------------------------------------------------------------------ cards ---
-
-def card_calendar(g, upd):
-    days = g["days"]
-    c = Card(880, 214, "Contribution calendar", f"{n(g['total'])} contributions in the last year", upd)
-    step, cell, x0, y0 = 15, 12, 50, 82
-    first = dt.date.fromisoformat(days[0][0])
-    pad = (first.weekday() + 1) % 7  # GitHub columns start on Sunday
-    cols, last_month = {}, None
-    for i, (d, cnt) in enumerate(days):
-        k = i + pad
-        col, row = k // 7, k % 7
-        lvl = 0 if cnt == 0 else 1 if cnt < 5 else 2 if cnt < 15 else 3 if cnt < 40 else 4
-        cols.setdefault(col, []).append(
-            f'<rect x="{x0 + col * step}" y="{y0 + row * step}" width="{cell}" height="{cell}" rx="3" fill="{HEAT[lvl]}"><title>{d}: {cnt}</title></rect>')
-        dd = dt.date.fromisoformat(d)
-        if row == 0 and dd.month != last_month and dd.day <= 7:
-            c.add(t(x0 + col * step, y0 - 8, f"{dd:%b}", "sm"))
-            last_month = dd.month
-    for col, rects in cols.items():
-        c.add(c.fade("".join(rects), 120 + col * 12))
-    for row, lab in ((1, "Mon"), (3, "Wed"), (5, "Fri")):
-        c.add(t(x0 - 8, y0 + row * step + 10, lab, "tiny", "end"))
-    lx = 880 - 24 - 5 * 15 - 34
-    c.add(t(lx - 6, 200, "less", "tiny", "end"))
-    for i, col in enumerate(HEAT):
-        c.add(f'<rect x="{lx + i * 15}" y="191" width="11" height="11" rx="3" fill="{col}"/>')
-    c.add(t(lx + 5 * 15 + 2, 200, "more", "tiny"))
-    return c.svg()
-
-
-def card_rings(s, upd):
-    c = Card(880, 200, "Streaks & habits", "last 12 months", upd)
-    tiles = [
-        ("Active days", s["active"], s["active"] / s["len"], C["green"], f"of {s['len']} days"),
-        ("Current streak", s["current"], s["current"] / max(1, s["longest"]), C["green"],
-         f"{fdate(s['current_range'][0], False)} – today" if s["current"] else "starts today"),
-        ("Longest streak", s["longest"], 1.0 if s["longest"] else 0, C["accent"],
-         f"{fdate(s['longest_range'][0], False)} – {fdate(s['longest_range'][1], False)}" if s["longest"] else "—"),
-        ("Longest break", s["gap"], s["gap"] / s["len"], C["gray"],
-         f"{fdate(s['gap_range'][0], False)} – {fdate(s['gap_range'][1], False)}" if s["gap"] else "never stopped"),
-        ("Weekend share", f"{round(s['weekend_pct'] * 100)}%", s["weekend_pct"], C["accent"], "of all contributions"),
-    ]
-    tw = 880 / 5
-    for i, (lab, val, frac, col, sub) in enumerate(tiles):
-        cx = tw * i + tw / 2
-        g = c.ring(round(cx), 98, 34, frac, 7, col, 150 + i * 120)
-        g += t(cx, 106, n(val), "mid", "middle")
-        g += t(cx, 156, lab, "val", "middle") + t(cx, 174, sub, "sm", "middle")
-        c.add(c.fade(g, 100 + i * 120))
-    return c.svg()
-
-
-def card_highlights(g, s, upd):
-    c = Card(880, 140, "Highlights", None, upd)
-    joined = dt.date.fromisoformat(g["created_at"][:10])
-    today = dt.date.fromisoformat(g["days"][-1][0])
-    months = (today.year - joined.year) * 12 + today.month - joined.month - (today.day < joined.day)
-    age = (f"{months // 12} year{'s' * (months // 12 != 1)} " if months >= 12 else "") + \
-          (f"{months % 12} month{'s' * (months % 12 != 1)}" if months % 12 else "")
-    tiles = [
-        ("Joined GitHub", fdate(g["created_at"]), f"{age.strip() or 'this month'} ago"),
-        ("Contributions", n(s["total"]), "in the last 12 months"),
-        ("Busiest day", f"{s['best']} contributions", fdate(s["best_date"])),
-        ("Per active day", f"{s['per_active']:.1f}", "average contributions"),
-    ]
-    tw = 880 / 4
-    for i, (lab, val, sub) in enumerate(tiles):
-        x = tw * i + 24
-        if i:
-            c.add(f'<line x1="{tw * i:.0f}" y1="56" x2="{tw * i:.0f}" y2="118" stroke="{C["line"]}"/>')
-        c.add(c.fade(t(x, 68, lab, "lab") + t(x, 96, val, "mid") + t(x, 116, sub, "sm"), 100 + i * 110))
-    return c.svg()
-
-
-def card_activity(s_days, upd):
-    days = s_days
-    weeks = []
-    for i in range(0, len(days), 7):
-        chunk = days[i:i + 7]
-        weeks.append((chunk[0][0], sum(x for _, x in chunk)))
-    c = Card(880, 250, "Contributions over time", "weekly totals · last 12 months", upd)
-    x0, x1, y0, y1 = 56, 856, 60, 206
-    top = max(1, max(v for _, v in weeks))
-    nice = next(m for m in (5, 10, 20, 25, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, 10**6) if m >= top)
-    for k in range(5):
-        y = y1 - (y1 - y0) * k / 4
-        c.add(f'<line x1="{x0}" y1="{y:.1f}" x2="{x1}" y2="{y:.1f}" stroke="{C["grid"]}"/>')
-        c.add(t(x0 - 10, y + 4, n(round(nice * k / 4)), "tiny", "end"))
-    pts = [(x0 + (x1 - x0) * i / (len(weeks) - 1), y1 - (y1 - y0) * v / nice) for i, (_, v) in enumerate(weeks)]
-
-    def smooth_path(p):
-        d = f"M{p[0][0]:.1f},{p[0][1]:.1f}"
-        for i in range(1, len(p)):
-            (xa, ya), (xb, yb) = p[i - 1], p[i]
-            mx = (xa + xb) / 2
-            d += f" C{mx:.1f},{ya:.1f} {mx:.1f},{yb:.1f} {xb:.1f},{yb:.1f}"
-        return d
-
-    line = smooth_path(pts)
-    c.add(c.fade(f'<path d="{line} L{x1},{y1} L{x0},{y1} Z" fill="{C['green']}" fill-opacity="0.15"/>', 300))
-    c.css.append(".draw{stroke-dasharray:2400;stroke-dashoffset:2400;animation:draw 1.8s ease-out .2s forwards}"
-                 "@keyframes draw{to{stroke-dashoffset:0}}")
-    c.add(f'<path class="draw" d="{line}" stroke="{C['green']}" stroke-width="2" fill="none" stroke-linejoin="round"/>')
-    last_m, last_x = None, -99
-    for i, (d, _) in enumerate(weeks):
-        dd = dt.date.fromisoformat(d)
-        if dd.month != last_m and i < len(weeks) - 2:
-            last_m = dd.month
-            if pts[i][0] - last_x < 40:  # partial first month: skip its label
-                continue
-            c.add(t(pts[i][0], y1 + 20, f"{dd:%b}", "tiny", "middle"))
-            last_x = pts[i][0]
-    bi = max(range(len(weeks)), key=lambda k: weeks[k][1])
-    bx, by = pts[bi]
-    c.add(c.fade(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="5" fill="{C["green"]}" stroke="{C["bg"]}" stroke-width="2"/>'
-                 + t(bx, by - 12, f"{n(weeks[bi][1])} · week of {fdate(weeks[bi][0], False)}", "sm",
-                     "end" if bx > 700 else "middle"), 1600))
-    return c.svg()
-
-
-def card_stats(p, g, upd, avatar):
-    c = Card(430, 214, "GitHub stats", None, upd)
-    lv, score = grade({**p, "followers": g["followers"]})
-    rows = [("Commits", p["commits"], "last 12 months"), ("Pull requests", p["prs"], None),
-            ("Issues", p["issues"], None), ("Repositories", p["repos"], None),
-            ("Stars earned", p["stars"], None), ("Followers", g["followers"], None)]
-    for i, (lab, val, hint) in enumerate(rows):
-        y = 66 + i * 23
-        c.add(c.fade(t(24, y, lab, "lab") + (t(24 + 7.2 * len(lab) + 8, y, hint, "tiny") if hint else "")
-                     + t(236, y, n(val), "val", "end"), 100 + i * 80))
-    cx, cy = 334, 112
-    ring = c.ring(cx, cy, 52, score, 7, C["accent"], 300)
-    clip = f'<clipPath id="av"><circle cx="{cx}" cy="{cy}" r="42"/></clipPath>'
-    img = (f'<image href="data:image/png;base64,{avatar}" x="{cx - 42}" y="{cy - 42}" width="84" height="84" '
-           f'clip-path="url(#av)" preserveAspectRatio="xMidYMid slice"/>' if avatar else "")
-    pill = (f'<rect x="{cx - 34}" y="{cy + 58}" width="68" height="24" rx="12" fill="{C["box"]}" stroke="{C["line"]}"/>'
-            + t(cx, cy + 75, f"rank {lv}", "val", "middle", 'style="font-size:13px"'))
-    c.add(c.fade(clip + f'<circle cx="{cx}" cy="{cy}" r="42" fill="{C["box"]}"/>' + img + ring + pill, 200))
-    return c.svg()
-
-
-def card_languages(p, upd):
-    langs = sorted(p["languages"].items(), key=lambda kv: (-kv[1]["repos"], -kv[1]["bytes"]))[:6]
-    total = sum(v["repos"] for _, v in langs) or 1
-    c = Card(430, 214, "Languages", "by repository", upd)
-    x, y, w = 24, 60, 382
-    bar = ""
-    for i, (name, v) in enumerate(langs):
-        bw = w * v["repos"] / total
-        bar += f'<rect x="{x:.1f}" y="{y}" width="{max(bw - 2, 1):.1f}" height="12" rx="3" fill="{v["color"]}"/>'
-        x += bw
-    c.add(c.fade(f'<clipPath id="lb"><rect x="24" y="{y}" width="{w}" height="12" rx="6"/></clipPath><g clip-path="url(#lb)">{bar}</g>', 150))
-    for i, (name, v) in enumerate(langs):
-        col, row = i % 2, i // 2
-        lx, ly = 24 + col * 196, 104 + row * 30
-        pct = 100 * v["repos"] / total
-        c.add(c.fade(f'<circle cx="{lx + 6}" cy="{ly - 4}" r="6" fill="{v["color"]}"/>'
-                     + t(lx + 20, ly, name, "val") + t(lx + 182, ly, f"{pct:.0f}%", "lab", "end"), 250 + i * 90))
-    return c.svg()
-
-
-def card_rhythm(s, upd):
-    c = Card(430, 214, "Weekly rhythm", "by weekday", upd)
-    names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    vals = s["by_weekday"]
-    top = max(1, max(vals))
-    bw, gap, x0, base, hmax = 38, 15, 30, 178, 104
-    for i, v in enumerate(vals):
-        h = max(3, hmax * v / top)
-        x = x0 + i * (bw + gap)
-        col = HEAT[4] if v == top else HEAT[2]
-        self_css = f"g{i}"
-        c.css.append(f".{self_css}{{transform-origin:{x + bw / 2}px {base}px;animation:grow{i} .9s ease-out {150 + i * 90}ms both}}"
-                     f"@keyframes grow{i}{{from{{transform:scaleY(0)}}to{{transform:scaleY(1)}}}}")
-        c.add(f'<rect class="{self_css}" x="{x}" y="{base - h:.1f}" width="{bw}" height="{h:.1f}" rx="6" fill="{col}"/>')
-        c.add(c.fade(t(x + bw / 2, base - h - 8, n(v), "sm", "middle"), 500 + i * 90))
-        c.add(t(x + bw / 2, base + 18, names[i], "lab", "middle"))
-    return c.svg()
-
-
-def card_month(s, upd):
-    c = Card(430, 214, "Last 30 days", None, upd)
-
-    def delta(a, b):
-        if not b:
-            return ("new", C["green"])
-        pct = (a - b) / b * 100
-        return (f"{'+' if pct >= 0 else ''}{pct:.0f}% vs previous 30", C["green"] if pct >= 0 else C["red"])
-
-    d1, c1 = delta(s["m_total"], s["m_prev"])
-    c.add(c.fade(t(24, 66, "Contributions", "lab") + t(24, 98, n(s["m_total"]), "big")
-                 + t(24, 118, d1, "sm", extra=f'style="fill:{c1}"'), 100))
-    c.add(c.fade(t(232, 66, "Active days", "lab") + t(232, 98, f"{s['m_active']}/30", "big"), 200))
-    if s["m_best_date"]:
-        c.add(c.fade(t(232, 118, f"best: {s['m_best']} on {fdate(s['m_best_date'], False)}", "sm"), 260))
-    vals = [v for _, v in s["last30"]]
-    top = max(1, max(vals))
-    bw = 382 / len(vals)
-    bars = "".join(
-        f'<rect x="{24 + i * bw:.1f}" y="{186 - max(2, 46 * v / top):.1f}" width="{bw - 3:.1f}" height="{max(2, 46 * v / top):.1f}" rx="2" '
-        f'fill="{HEAT[0] if v == 0 else (HEAT[4] if v == top else HEAT[2])}"/>' for i, v in enumerate(vals))
-    c.add(c.fade(bars, 350))
-    return c.svg()
-
-
-def card_leetcode(l, upd):
-    c = Card(430, 214, "LeetCode", f"@{USER}", upd)
-    e, m, h = l["solved"].get("Easy", 0), l["solved"].get("Medium", 0), l["solved"].get("Hard", 0)
-    tot = e + m + h
-    cx, cy, r = 100, 122, 52
-    circ = 2 * math.pi * r
-    segs, acc = "", 0.0
-    for val, col in ((e, C["green"]), (m, C["yellow"]), (h, C["red"])):
-        if not val:
-            continue
-        frac = val / tot
-        L = circ * frac
-        segs += (f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{col}" stroke-width="10" '
-                 f'stroke-dasharray="{max(L - 4, 1):.2f} {circ:.2f}" stroke-dashoffset="{-acc:.2f}" '
-                 f'transform="rotate(-90 {cx} {cy})" stroke-linecap="round"/>')
-        acc += L
-    ring = f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{C["track"]}" stroke-width="10"/>' + segs
-    c.add(c.fade(ring + t(cx, cy + 6, n(tot), "big", "middle") + t(cx, cy + 26, "solved", "sm", "middle"), 150))
-    for i, (lab, val, col) in enumerate((("Easy", e, C["green"]), ("Medium", m, C["yellow"]), ("Hard", h, C["red"]))):
-        y = 76 + i * 40
-        totq = l["total"].get(lab, 1)
-        w = 230 * min(1, val / totq * 8)  # 8x zoom so early progress is visible
-        c.add(c.fade(t(180, y, lab, "lab", extra=f'style="fill:{col}"') + t(410, y, f"{val} / {n(totq)}", "lab", "end")
-                     + f'<rect x="180" y="{y + 8}" width="230" height="7" rx="3.5" fill="{C["track"]}"/>'
-                     + (f'<rect x="180" y="{y + 8}" width="{max(w, 7):.1f}" height="7" rx="3.5" fill="{col}"/>' if val else ""),
-                     200 + i * 100))
-    meta = f"{l['active_days']} active days · best streak {l['streak']}" + (f" · {l['language']}" if l.get("language") else "")
-    c.add(c.fade(t(180, 196, meta, "tiny"), 500))
-    return c.svg()
-
-
-def card_thm(m, upd):
-    tier = (m.get("leagueTier") or "").capitalize()
-    c = Card(430, 214, "TryHackMe", f"{m.get('rank') or ''} · {tier} league".strip(" ·"), upd)
-    cx, cy = 92, 120
-    hexa = " ".join(f"{cx + 54 * math.cos(math.radians(a)):.1f},{cy + 54 * math.sin(math.radians(a)):.1f}" for a in range(-90, 270, 60))
-    c.add(c.fade(f'<polygon points="{hexa}" fill="{C["box"]}" stroke="{C["line"]}" stroke-width="2" stroke-linejoin="round"/>'
-                 + t(cx, cy - 8, "LEVEL", "sm", "middle", 'style="letter-spacing:2px"')
-                 + t(cx, cy + 24, m.get("level", "—"), "big", "middle", 'style="font-size:34px"'), 150))
-    stats = [("Points", m.get("totalPoints")), ("Rooms", m.get("completedRoomsNumber")),
-             ("Badges", m.get("badgesNumber")), ("Best streak", m.get("largestStreak"))]
-    for i, (lab, val) in enumerate(stats):
-        x, y = 184 + (i % 2) * 120, 82 + (i // 2) * 58
-        c.add(c.fade(t(x, y, lab, "lab") + t(x, y + 28, n(val if val is not None else "—"), "mid"), 250 + i * 90))
-    if m.get("dateSignUp"):
-        c.add(t(184, 196, f"hacking since {fdate(m['dateSignUp'])}", "tiny"))
-    return c.svg()
-
-
-def card_chess(ch, upd):
-    c = Card(880, 226, "Chess.com", f"@{USER} · {ch.get('league') or ''} league".replace(" ·  league", ""), upd)
-    icons = {"Blitz": "⚡", "Rapid": "⏱", "Bullet": "•", "Daily": "☀"}
-    modes = list(ch["modes"].items())
-    tw = 880 / 5
-    for i, (name, m) in enumerate(modes[:4]):
-        x = tw * i + 24
-        games = m["win"] + m["loss"] + m["draw"] or 1
-        wpx, dpx = 128 * m["win"] / games, 128 * m["draw"] / games
-        g = (t(x, 72, f"{icons.get(name, '')} {name}", "lab") + t(x, 106, m["rating"], "big")
-             + t(x, 126, f"best {m['best']}" if m.get("best") else "", "sm")
-             + f'<rect x="{x}" y="146" width="128" height="8" rx="4" fill="{C["red"]}"/>'
-             + f'<rect x="{x}" y="146" width="{wpx + dpx:.1f}" height="8" rx="4" fill="{C["gray"]}"/>'
-             + f'<rect x="{x}" y="146" width="{wpx:.1f}" height="8" rx="4" fill="{C["green"]}"/>'
-             + t(x, 172, f"{n(m['win'])}W · {n(m['loss'])}L · {n(m['draw'])}D", "sm")
-             + t(x, 190, f"{100 * m['win'] / games:.0f}% wins · {n(games)} games", "tiny"))
-        if i:
-            c.add(f'<line x1="{tw * i:.0f}" y1="58" x2="{tw * i:.0f}" y2="196" stroke="{C["line"]}"/>')
-        c.add(c.fade(g, 120 + i * 110))
-    x = tw * 4 + 24
-    c.add(f'<line x1="{tw * 4:.0f}" y1="58" x2="{tw * 4:.0f}" y2="196" stroke="{C["line"]}"/>')
-    c.add(c.fade(t(x, 72, "🧩 Puzzles peak", "lab") + t(x, 106, ch.get("puzzles") or "—", "big")
-                 + t(x, 140, "Puzzle Rush best", "lab") + t(x, 164, ch.get("rush") or "—", "mid")
-                 + t(x, 190, f"{ch.get('followers', 0)} followers", "tiny"), 560))
-    return c.svg()
-
 
 # Pixel shiba for the neofetch card. Tones: + outline, o fur, x inner ear,
 # . white fur, # eyes/nose/mouth. Drawn as dither patterns, so it looks like
@@ -694,6 +463,206 @@ def card_neofetch(data, s, theme):
     return c.svg()
 
 
+# --------------------------------------------------------------- dashboard ---
+# One combined panel in the style of lowlighter/metrics: GitHub octicons,
+# small text, blue section headers, two columns.
+
+OCT = json.load(open(os.path.join(ROOT, "assets", "octicons.json"), encoding="utf-8"))
+STACK = ["dart", "flutter", "python", "cs", "unity", "html", "css", "js", "git"]
+
+
+def octicon(name, x, y, color, size=16):
+    paths = "".join(f'<path d="{d}"/>' for d in OCT.get(name, []))
+    return f'<svg x="{x}" y="{y}" width="{size}" height="{size}" viewBox="0 0 16 16" fill="{color}">{paths}</svg>'
+
+
+def logo(path, x, y, size, prefix):
+    """Inline a 256x256 logo file, prefixing its ids so several can share a document."""
+    import re
+    inner = re.search(r"<svg[^>]*>(.*)</svg>", open(path, encoding="utf-8").read(), re.S).group(1)
+    inner = re.sub(r'id="([^"]+)"', lambda m: f'id="{prefix}-{m.group(1)}"', inner)
+    inner = re.sub(r"url\(#([^)]+)\)", lambda m: f"url(#{prefix}-{m.group(1)})", inner)
+    inner = re.sub(r'href="#([^"]+)"', lambda m: f'href="#{prefix}-{m.group(1)}"', inner)
+    return f'<svg x="{x}" y="{y}" width="{size}" height="{size}" viewBox="0 0 256 256" fill="none">{inner}</svg>'
+
+
+def shade(hexcol, k):
+    r, g, b = (int(hexcol[i:i + 2], 16) for i in (1, 3, 5))
+    return "#%02x%02x%02x" % (int(r * k), int(g * k), int(b * k))
+
+
+def ago(created):
+    j = dt.date.fromisoformat(created[:10])
+    months = (TODAY.year - j.year) * 12 + TODAY.month - j.month - (TODAY.day < j.day)
+    if months >= 12:
+        y = months // 12
+        return f"{y} year{'s' * (y != 1)} ago"
+    return f"{months} month{'s' * (months != 1)} ago" if months else "this month"
+
+
+def card_dashboard(data, s, avatar):
+    W, H = 880, 556
+    c = Card(W, H, border=False)
+    g, p = data.get("github", {}), data.get("github_private", {})
+    ch, lc, thm = data.get("chess", {}), data.get("leetcode", {}), data.get("tryhackme", {})
+    c.css.append(
+        f".nm{{font:600 22px {FONT};fill:{C['accent']}}}"
+        f".h{{font:400 16px {FONT};fill:{C['accent']}}}"
+        f".b{{font:400 13px {FONT};fill:{C['text']}}}"
+        f".bm{{font:400 13px {FONT};fill:{C['muted']}}}"
+        f".ct{{font:400 12.5px {FONT};fill:{C['accent']}}}"
+        f".ax{{font:400 9.5px {FONT};fill:{C['muted']}}}")
+    mut, acc = C["muted"], C["accent"]
+
+    def line(icon, x, y, text, cls="bm"):
+        return octicon(icon, x, y - 12, mut) + t(x + 22, y, text, cls)
+
+    def header(icon, x, y, text):
+        return octicon(icon, x, y - 13, mut) + t(x + 22, y, text, "h")
+
+    # ---- left column -------------------------------------------------------
+    L, R = 20, 460
+    if avatar:
+        c.add(f'<clipPath id="av"><circle cx="{L + 12}" cy="28" r="12"/></clipPath>'
+              f'<circle cx="{L + 12}" cy="28" r="12" fill="{C["box"]}"/>'
+              f'<image href="data:image/png;base64,{avatar}" x="{L}" y="16" width="24" height="24" clip-path="url(#av)"/>')
+    c.add(t(L + 32, 36, "Alexey Belkin", "nm"))
+    c.add(c.fade(line("clock", L, 64, f"Joined GitHub {ago(g['created_at'])}" if g else "Joined GitHub")
+                 + line("people", L, 85, f"Followed by {g.get('followers', 0)} users")
+                 + line("location", L, 106, "Israel · 16 · judo"), 80))
+    last14 = [v for _, v in s["last30"][-14:]]
+    sq = "".join(
+        f'<rect x="{L + 226 + i * 15}" y="20" width="12" height="12" rx="2" '
+        f'fill="{HEAT[0 if v == 0 else 1 if v < 5 else 2 if v < 15 else 3 if v < 40 else 4]}"/>'
+        for i, v in enumerate(last14))
+    c.add(c.fade(sq + line("repo-push", L + 226, 64, f"Contributed to {p.get('contributed_to', '—')} repositories")
+                 + line("zap", L + 226, 85, f"{n(s['m_total'])} contributions in 30 days")
+                 + line("flame", L + 226, 106, f"{s['current']} day streak"), 140))
+
+    c.add(header("repo", L, 146, f"{p.get('repos', 0)} Repositories"))
+    lv, _ = grade({**p, "followers": g.get("followers", 0)}) if p else ("—", 0)
+    left = [("git-commit", f"{n(p.get('commits', 0))} commits this year"),
+            ("git-pull-request", f"{n(p.get('prs', 0))} pull requests"),
+            ("issue-opened", f"{n(p.get('issues', 0))} issues"),
+            ("star", f"{n(p.get('stars', 0))} stars earned")]
+    right = [("pulse", f"{n(s['total'])} contributions"),
+             ("calendar", f"{s['active']} active days"),
+             ("rocket", f"{s['best']} on busiest day"),
+             ("trophy", f"rank {lv}")]
+    for i, ((ia, ta), (ib, tb)) in enumerate(zip(left, right)):
+        y = 170 + i * 21
+        c.add(c.fade(line(ia, L, y, ta) + line(ib, L + 226, y, tb), 200 + i * 50))
+
+    c.add(header("light-bulb", L, 278, "Coding habits and recent activity"))
+    hours = p.get("hours") or [0] * 24
+    c.add(t(L + 210, 298, "Commit activity per time of the day", "ct", "middle"))
+    top = max(1, max(hours))
+    bars = ""
+    for i, v in enumerate(hours):
+        x = L + i * 17.5 + 3
+        h = 38 * v / top
+        if v:
+            bars += (f'<rect x="{x:.1f}" y="{362 - h:.1f}" width="9" height="{h:.1f}" rx="4" fill="{C["green"]}"/>'
+                     + t(x + 4.5, 356 - h, v, "ax", "middle"))
+        else:
+            bars += f'<rect x="{x:.1f}" y="360" width="9" height="2" rx="1" fill="{C["track"]}"/>'
+        bars += t(x + 4.5, 376, f"{i:02d}", "ax", "middle")
+    c.add(c.fade(bars, 300))
+
+    wd = s["by_weekday"]
+    wd = [wd[6]] + wd[:6]  # Sunday first, like GitHub
+    c.add(t(L + 100, 400, "Contributions per weekday", "ct", "middle"))
+    top = max(1, max(wd))
+    bars = ""
+    for i, v in enumerate(wd):
+        x = L + 6 + i * 28
+        h = max(2, 34 * v / top)
+        bars += (f'<rect x="{x}" y="{458 - h:.1f}" width="14" height="{h:.1f}" rx="4" fill="{C["green"] if v else C["track"]}"/>'
+                 + t(x + 7, 452 - h, v, "ax", "middle") + t(x + 7, 472, "SMTWTFS"[i], "ax", "middle"))
+    c.add(c.fade(bars, 350))
+    c.add(t(L + 320, 400, "Last 30 days", "ct", "middle"))
+    vals = [v for _, v in s["last30"]]
+    top = max(1, max(vals))
+    bars = "".join(
+        f'<rect x="{L + 220 + i * 6.7:.1f}" y="{458 - max(2, 34 * v / top):.1f}" width="5" '
+        f'height="{max(2, 34 * v / top):.1f}" rx="1.5" fill="{C["green"] if v else C["track"]}"/>' for i, v in enumerate(vals))
+    bars += t(L + 220, 472, fdate(s["last30"][0][0], False), "ax") + t(L + 420, 472, "today", "ax", "end")
+    c.add(c.fade(bars, 400))
+
+    c.add(header("telescope", L, 506, "Mastered technologies and topics"))
+    icons = "".join(logo(os.path.join(ROOT, "assets", "stack", f"{k}.svg"), L + i * 28, 520, 24, f"st{i}")
+                    for i, k in enumerate(STACK))
+    c.add(c.fade(icons, 450))
+
+    # ---- right column ------------------------------------------------------
+    c.add(header("pulse", R, 36, "Streaks & habits"))
+    rings = [("Active days", s["active"], s["active"] / s["len"], C["green"]),
+             ("Current streak", s["current"], s["current"] / max(1, s["longest"]), C["green"]),
+             ("Best streak", s["longest"], 1.0 if s["longest"] else 0, acc),
+             ("Weekend", f"{round(s['weekend_pct'] * 100)}%", s["weekend_pct"], acc)]
+    for i, (lab, val, frac, col) in enumerate(rings):
+        cx = R + 50 + i * 102
+        c.add(c.fade(c.ring(cx, 82, 22, frac, 4, col, 150 + i * 100) + t(cx, 87, n(val), "val", "middle")
+                     + t(cx, 126, lab, "bm", "middle"), 120 + i * 100))
+
+    c.add(header("calendar", R, 166, "Contributions calendar"))
+    days = g.get("days", [])
+    first = dt.date.fromisoformat(days[0][0]) if days else TODAY
+    pad = (first.weekday() + 1) % 7
+    cells = [((i + pad) // 7, (i + pad) % 7, v) for i, (_, v) in enumerate(days)]
+    last_col = cells[-1][0] if cells else 0
+    cells = [(col - (last_col - 25), row, v) for col, row, v in cells if col > last_col - 26]
+    top = max(1, max((v for *_, v in cells), default=1))
+    sz, ox, oy = 6.5, R + 52, 230
+    iso = []
+    for col, row, v in sorted(cells, key=lambda k: (k[0] + k[1], k[0])):
+        lvl = 0 if v == 0 else 1 if v < 5 else 2 if v < 15 else 3 if v < 40 else 4
+        topc = C["track"] if lvl == 0 else HEAT[lvl]
+        h = 2 + 44 * math.sqrt(v / top)
+        px, py = ox + (col - row) * sz, oy + (col + row) * sz / 2
+
+        def poly(pts, fill):
+            return f'<polygon points="{" ".join(f"{a:.1f},{b:.1f}" for a, b in pts)}" fill="{fill}"/>'
+
+        iso.append(poly([(px - sz, py + sz / 2 - h), (px, py + sz - h), (px, py + sz), (px - sz, py + sz / 2)], shade(topc, 0.78))
+                   + poly([(px, py + sz - h), (px + sz, py + sz / 2 - h), (px + sz, py + sz / 2), (px, py + sz)], shade(topc, 0.62))
+                   + poly([(px, py - h), (px + sz, py + sz / 2 - h), (px, py + sz - h), (px - sz, py + sz / 2 - h)], topc))
+    c.add(c.fade("".join(iso), 250))
+    c.add(c.fade(line("flame", R + 252, 214, f"Current streak {s['current']} days")
+                 + line("graph", R + 252, 236, f"~{s['total'] / max(1, s['len']):.2f} per day")
+                 + line("rocket", R + 252, 258, f"Best day: {s['best']}"), 300))
+
+    c.add(header("code-square", R, 372, "Most used languages"))
+    langs = sorted(p.get("languages", {}).items(), key=lambda kv: (-kv[1]["repos"], -kv[1]["bytes"]))[:6]
+    total = sum(v["repos"] for _, v in langs) or 1
+    x, bar, legend = R, "", ""
+    for i, (name, v) in enumerate(langs):
+        bw = 400 * v["repos"] / total
+        bar += f'<rect x="{x:.1f}" y="384" width="{max(bw - 2, 1):.1f}" height="8" fill="{v["color"]}"/>'
+        x += bw
+        lx = R + 6 + i * 110
+        legend += f'<circle cx="{lx}" cy="410" r="5" fill="{v["color"]}"/>' + t(lx + 12, 414, f"{name} {100 * v['repos'] / total:.0f}%", "b")
+    c.add(c.fade(f'<clipPath id="lb"><rect x="{R}" y="384" width="400" height="8" rx="4"/></clipPath>'
+                 f'<g clip-path="url(#lb)">{bar}</g>' + legend, 350))
+
+    c.add(header("globe", R, 452, "Elsewhere"))
+    modes = ch.get("modes", {})
+    solved = lc.get("solved", {})
+    rows = [
+        ("chessdotcom", "Chess.com", " · ".join(f"{m['rating']} {k.lower()}" for k, m in list(modes.items())[:3])
+         + (f" · {ch['puzzles']} puzzles" if ch.get("puzzles") else "")),
+        ("leetcode", "LeetCode", f"{sum(solved.get(k, 0) for k in ('Easy', 'Medium', 'Hard'))} solved · "
+                                 f"{solved.get('Easy', 0)} easy · {solved.get('Medium', 0)} medium · {solved.get('Hard', 0)} hard"),
+        ("tryhackme", "TryHackMe", f"level {thm.get('level', '—')} · {(thm.get('rank') or '').lower()} · "
+                                   f"{thm.get('completedRoomsNumber', 0)} rooms · {thm.get('badgesNumber', 0)} badges"),
+    ]
+    for i, (ic, name, text) in enumerate(rows):
+        y = 478 + i * 26
+        c.add(c.fade(logo(os.path.join(ROOT, "assets", "icons", f"{ic}.svg"), R, y - 14, 18, f"el{i}")
+                     + t(R + 26, y, name, "b") + t(R + 108, y, text, "bm"), 400 + i * 60))
+    return c.svg()
+
+
 # ------------------------------------------------------------------- main ---
 
 def main():
@@ -745,27 +714,9 @@ def main():
     for theme, suffix in (("dark", ""), ("light", "-light")):
         use_theme(theme)
         if "github" in data:
-            g = data["github"]
-            s = cal_stats(g["days"])
-            u = g["updated"]
-            write(f"calendar{suffix}.svg", card_calendar(g, u))
-            write(f"habits{suffix}.svg", card_rings(s, u))
-            write(f"highlights{suffix}.svg", card_highlights(g, s, u))
-            write(f"activity{suffix}.svg", card_activity(g["days"], u))
-            write(f"rhythm{suffix}.svg", card_rhythm(s, u))
-            write(f"month{suffix}.svg", card_month(s, u))
-            if "github_private" in data:
-                p = data["github_private"]
-                write(f"stats{suffix}.svg", card_stats(p, g, p["updated"], avatar))
-                write(f"languages{suffix}.svg", card_languages(p, p["updated"]))
-        if "leetcode" in data:
-            write(f"leetcode{suffix}.svg", card_leetcode(data["leetcode"], data["leetcode"]["updated"]))
-        if "chess" in data:
-            write(f"chess{suffix}.svg", card_chess(data["chess"], data["chess"]["updated"]))
-        if "tryhackme" in data:
-            write(f"tryhackme{suffix}.svg", card_thm(data["tryhackme"], data["tryhackme"]["updated"]))
-        if "github" in data:
-            write(f"neofetch{suffix}.svg", card_neofetch(data, cal_stats(data["github"]["days"]), theme))
+            s = cal_stats(data["github"]["days"])
+            write(f"dashboard{suffix}.svg", card_dashboard(data, s, avatar))
+            write(f"neofetch{suffix}.svg", card_neofetch(data, s, theme))
     json.dump(data, open(data_path, "w", encoding="utf-8"), indent=1)
 
 
