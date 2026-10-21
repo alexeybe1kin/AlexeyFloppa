@@ -22,17 +22,31 @@ USER = "alexeybe1kin"
 UA = f"{USER}-profile-cards (+https://github.com/{USER})"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-FONT = "'Segoe UI', Ubuntu, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif"
 MONO = "'DejaVu Sans Mono', Menlo, 'Liberation Mono', 'Courier New', monospace"
-# One flat orange-gold palette, no gradients anywhere.
-C = {
-    "bg": "#15110c", "title": "#ffc94d", "text": "#fbeedb", "muted": "#a8916f", "faint": "#6e5a42",
-    "track": "#2e2217", "line": "#3d2b17", "grid": "#2a1f15",
-    "pale": "#ffe3a1", "gold": "#ffc94d", "amber": "#f4a62a", "orange": "#ff8a3d", "deep": "#d9620c",
-    "brown": "#8a5a12", "dim": "#5c3d17",
+# GitHub's own Primer colours, so the cards look like native GitHub boxes.
+# Every card is rendered once per theme; the README picks one with <picture>.
+THEMES = {
+    "dark": {
+        "C": {"bg": "#0d1117", "box": "#161b22", "title": "#e6edf3", "text": "#e6edf3", "muted": "#9198a1",
+              "faint": "#6e7681", "track": "#21262d", "line": "#30363d", "grid": "#21262d",
+              "green": "#3fb950", "accent": "#4493f8", "yellow": "#d29922", "red": "#f85149", "gray": "#6e7681"},
+        "HEAT": ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
+    },
+    "light": {
+        "C": {"bg": "#ffffff", "box": "#f6f8fa", "title": "#1f2328", "text": "#1f2328", "muted": "#59636e",
+              "faint": "#818b98", "track": "#eaeef2", "line": "#d1d9e0", "grid": "#eaeef2",
+              "green": "#1a7f37", "accent": "#0969da", "yellow": "#9a6700", "red": "#d1242f", "gray": "#818b98"},
+        "HEAT": ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
+    },
 }
-HEAT = ["#241a11", "#523612", "#94600f", "#dc8f15", "#ffcc52"]
-SERIES = [C["gold"], C["orange"], C["pale"], C["deep"], C["amber"], C["brown"]]
+C = THEMES["dark"]["C"]
+HEAT = THEMES["dark"]["HEAT"]
+
+
+def use_theme(name):
+    global C, HEAT
+    C, HEAT = THEMES[name]["C"], THEMES[name]["HEAT"]
 
 
 # --------------------------------------------------------------- fetching ---
@@ -166,7 +180,8 @@ class Card:
     def fade(self, inner, delay):
         return f'<g class="fade" style="animation-delay:{delay}ms">{inner}</g>'
 
-    def ring(self, cx, cy, r, frac, width, color, delay=0, track=C["track"]):
+    def ring(self, cx, cy, r, frac, width, color, delay=0, track=None):
+        track = track or C["track"]
         frac = max(0.0, min(1.0, frac))
         circ = 2 * math.pi * r
         off = circ * (1 - frac)
@@ -182,7 +197,7 @@ class Card:
     def svg(self):
         w, h = self.w, self.h
         css = f"""
-.title{{font:600 16px {FONT};fill:{C['title']}}}
+.title{{font:600 15px {FONT};fill:{C['title']}}}
 .sub{{font:400 12px {FONT};fill:{C['muted']}}}
 .upd{{font:400 10px {FONT};fill:{C['faint']}}}
 .big{{font:700 28px {FONT};fill:{C['text']}}}
@@ -197,7 +212,7 @@ class Card:
 @media (prefers-reduced-motion:reduce){{.fade{{animation:none;opacity:1}}*{{animation:none!important}}}}"""
         return f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{w}" height="{h}" viewBox="0 0 {w} {h}" fill="none" role="img">
 <style>{css}</style>
-<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="14" fill="{C['bg']}" stroke="{C['line']}"/>
+<rect x="0.5" y="0.5" width="{w - 1}" height="{h - 1}" rx="6" fill="{C['bg']}" stroke="{C['line']}"/>
 {''.join(self.parts)}
 </svg>
 """
@@ -301,14 +316,14 @@ def card_calendar(g, upd):
 def card_rings(s, upd):
     c = Card(880, 200, "Streaks & habits", "last 12 months", upd)
     tiles = [
-        ("Active days", s["active"], s["active"] / s["len"], C["gold"], f"of {s['len']} days"),
-        ("Current streak", s["current"], s["current"] / max(1, s["longest"]), C["amber"],
+        ("Active days", s["active"], s["active"] / s["len"], C["green"], f"of {s['len']} days"),
+        ("Current streak", s["current"], s["current"] / max(1, s["longest"]), C["green"],
          f"{fdate(s['current_range'][0], False)} – today" if s["current"] else "starts today"),
-        ("Longest streak", s["longest"], 1.0 if s["longest"] else 0, C["orange"],
+        ("Longest streak", s["longest"], 1.0 if s["longest"] else 0, C["accent"],
          f"{fdate(s['longest_range'][0], False)} – {fdate(s['longest_range'][1], False)}" if s["longest"] else "—"),
-        ("Longest break", s["gap"], s["gap"] / s["len"], C["deep"],
+        ("Longest break", s["gap"], s["gap"] / s["len"], C["gray"],
          f"{fdate(s['gap_range'][0], False)} – {fdate(s['gap_range'][1], False)}" if s["gap"] else "never stopped"),
-        ("Weekend share", f"{round(s['weekend_pct'] * 100)}%", s["weekend_pct"], C["pale"], "of all contributions"),
+        ("Weekend share", f"{round(s['weekend_pct'] * 100)}%", s["weekend_pct"], C["accent"], "of all contributions"),
     ]
     tw = 880 / 5
     for i, (lab, val, frac, col, sub) in enumerate(tiles):
@@ -367,10 +382,10 @@ def card_activity(s_days, upd):
         return d
 
     line = smooth_path(pts)
-    c.add(c.fade(f'<path d="{line} L{x1},{y1} L{x0},{y1} Z" fill="#ffc94d" fill-opacity="0.12"/>', 300))
+    c.add(c.fade(f'<path d="{line} L{x1},{y1} L{x0},{y1} Z" fill="{C['green']}" fill-opacity="0.15"/>', 300))
     c.css.append(".draw{stroke-dasharray:2400;stroke-dashoffset:2400;animation:draw 1.8s ease-out .2s forwards}"
                  "@keyframes draw{to{stroke-dashoffset:0}}")
-    c.add(f'<path class="draw" d="{line}" stroke="#ffc94d" stroke-width="2.5" fill="none" stroke-linejoin="round"/>')
+    c.add(f'<path class="draw" d="{line}" stroke="{C['green']}" stroke-width="2" fill="none" stroke-linejoin="round"/>')
     last_m, last_x = None, -99
     for i, (d, _) in enumerate(weeks):
         dd = dt.date.fromisoformat(d)
@@ -382,7 +397,7 @@ def card_activity(s_days, upd):
             last_x = pts[i][0]
     bi = max(range(len(weeks)), key=lambda k: weeks[k][1])
     bx, by = pts[bi]
-    c.add(c.fade(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="5" fill="{C["gold"]}" stroke="#15110c" stroke-width="2"/>'
+    c.add(c.fade(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="5" fill="{C["green"]}" stroke="{C["bg"]}" stroke-width="2"/>'
                  + t(bx, by - 12, f"{n(weeks[bi][1])} · week of {fdate(weeks[bi][0], False)}", "sm",
                      "end" if bx > 700 else "middle"), 1600))
     return c.svg()
@@ -399,13 +414,13 @@ def card_stats(p, g, upd, avatar):
         c.add(c.fade(t(24, y, lab, "lab") + (t(24 + 7.2 * len(lab) + 8, y, hint, "tiny") if hint else "")
                      + t(236, y, n(val), "val", "end"), 100 + i * 80))
     cx, cy = 334, 112
-    ring = c.ring(cx, cy, 52, score, 7, C["gold"], 300)
+    ring = c.ring(cx, cy, 52, score, 7, C["accent"], 300)
     clip = f'<clipPath id="av"><circle cx="{cx}" cy="{cy}" r="42"/></clipPath>'
     img = (f'<image href="data:image/png;base64,{avatar}" x="{cx - 42}" y="{cy - 42}" width="84" height="84" '
            f'clip-path="url(#av)" preserveAspectRatio="xMidYMid slice"/>' if avatar else "")
-    pill = (f'<rect x="{cx - 34}" y="{cy + 58}" width="68" height="24" rx="12" fill="#2a1d10" stroke="{C["line"]}"/>'
-            + t(cx, cy + 75, f"rank {lv}", "val", "middle", 'style="font-size:13px;fill:#ffc94d"'))
-    c.add(c.fade(clip + f'<circle cx="{cx}" cy="{cy}" r="42" fill="#2a1d10"/>' + img + ring + pill, 200))
+    pill = (f'<rect x="{cx - 34}" y="{cy + 58}" width="68" height="24" rx="12" fill="{C["box"]}" stroke="{C["line"]}"/>'
+            + t(cx, cy + 75, f"rank {lv}", "val", "middle", 'style="font-size:13px"'))
+    c.add(c.fade(clip + f'<circle cx="{cx}" cy="{cy}" r="42" fill="{C["box"]}"/>' + img + ring + pill, 200))
     return c.svg()
 
 
@@ -417,14 +432,14 @@ def card_languages(p, upd):
     bar = ""
     for i, (name, v) in enumerate(langs):
         bw = w * v["repos"] / total
-        bar += f'<rect x="{x:.1f}" y="{y}" width="{max(bw - 2, 1):.1f}" height="12" rx="3" fill="{SERIES[i % len(SERIES)]}"/>'
+        bar += f'<rect x="{x:.1f}" y="{y}" width="{max(bw - 2, 1):.1f}" height="12" rx="3" fill="{v["color"]}"/>'
         x += bw
     c.add(c.fade(f'<clipPath id="lb"><rect x="24" y="{y}" width="{w}" height="12" rx="6"/></clipPath><g clip-path="url(#lb)">{bar}</g>', 150))
     for i, (name, v) in enumerate(langs):
         col, row = i % 2, i // 2
         lx, ly = 24 + col * 196, 104 + row * 30
         pct = 100 * v["repos"] / total
-        c.add(c.fade(f'<circle cx="{lx + 6}" cy="{ly - 4}" r="6" fill="{SERIES[i % len(SERIES)]}"/>'
+        c.add(c.fade(f'<circle cx="{lx + 6}" cy="{ly - 4}" r="6" fill="{v["color"]}"/>'
                      + t(lx + 20, ly, name, "val") + t(lx + 182, ly, f"{pct:.0f}%", "lab", "end"), 250 + i * 90))
     return c.svg()
 
@@ -438,7 +453,7 @@ def card_rhythm(s, upd):
     for i, v in enumerate(vals):
         h = max(3, hmax * v / top)
         x = x0 + i * (bw + gap)
-        col = C["gold"] if v == top else (C["brown"] if i >= 5 else C["dim"])
+        col = HEAT[4] if v == top else HEAT[2]
         self_css = f"g{i}"
         c.css.append(f".{self_css}{{transform-origin:{x + bw / 2}px {base}px;animation:grow{i} .9s ease-out {150 + i * 90}ms both}}"
                      f"@keyframes grow{i}{{from{{transform:scaleY(0)}}to{{transform:scaleY(1)}}}}")
@@ -453,9 +468,9 @@ def card_month(s, upd):
 
     def delta(a, b):
         if not b:
-            return ("new", C["pale"])
+            return ("new", C["green"])
         pct = (a - b) / b * 100
-        return (f"{'+' if pct >= 0 else ''}{pct:.0f}% vs previous 30", C["pale"] if pct >= 0 else C["orange"])
+        return (f"{'+' if pct >= 0 else ''}{pct:.0f}% vs previous 30", C["green"] if pct >= 0 else C["red"])
 
     d1, c1 = delta(s["m_total"], s["m_prev"])
     c.add(c.fade(t(24, 66, "Contributions", "lab") + t(24, 98, n(s["m_total"]), "big")
@@ -468,7 +483,7 @@ def card_month(s, upd):
     bw = 382 / len(vals)
     bars = "".join(
         f'<rect x="{24 + i * bw:.1f}" y="{186 - max(2, 46 * v / top):.1f}" width="{bw - 3:.1f}" height="{max(2, 46 * v / top):.1f}" rx="2" '
-        f'fill="{HEAT[0] if v == 0 else (C["gold"] if v == top else C["amber"])}"/>' for i, v in enumerate(vals))
+        f'fill="{HEAT[0] if v == 0 else (HEAT[4] if v == top else HEAT[2])}"/>' for i, v in enumerate(vals))
     c.add(c.fade(bars, 350))
     return c.svg()
 
@@ -480,7 +495,7 @@ def card_leetcode(l, upd):
     cx, cy, r = 100, 122, 52
     circ = 2 * math.pi * r
     segs, acc = "", 0.0
-    for val, col in ((e, C["pale"]), (m, C["gold"]), (h, C["orange"])):
+    for val, col in ((e, C["green"]), (m, C["yellow"]), (h, C["red"])):
         if not val:
             continue
         frac = val / tot
@@ -491,7 +506,7 @@ def card_leetcode(l, upd):
         acc += L
     ring = f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{C["track"]}" stroke-width="10"/>' + segs
     c.add(c.fade(ring + t(cx, cy + 6, n(tot), "big", "middle") + t(cx, cy + 26, "solved", "sm", "middle"), 150))
-    for i, (lab, val, col) in enumerate((("Easy", e, C["pale"]), ("Medium", m, C["gold"]), ("Hard", h, C["orange"]))):
+    for i, (lab, val, col) in enumerate((("Easy", e, C["green"]), ("Medium", m, C["yellow"]), ("Hard", h, C["red"]))):
         y = 76 + i * 40
         totq = l["total"].get(lab, 1)
         w = 230 * min(1, val / totq * 8)  # 8x zoom so early progress is visible
@@ -509,7 +524,7 @@ def card_thm(m, upd):
     c = Card(430, 214, "TryHackMe", f"{m.get('rank') or ''} · {tier} league".strip(" ·"), upd)
     cx, cy = 92, 120
     hexa = " ".join(f"{cx + 54 * math.cos(math.radians(a)):.1f},{cy + 54 * math.sin(math.radians(a)):.1f}" for a in range(-90, 270, 60))
-    c.add(c.fade(f'<polygon points="{hexa}" fill="#24170b" stroke="#ff8a3d" stroke-width="3" stroke-linejoin="round"/>'
+    c.add(c.fade(f'<polygon points="{hexa}" fill="{C["box"]}" stroke="{C["line"]}" stroke-width="2" stroke-linejoin="round"/>'
                  + t(cx, cy - 8, "LEVEL", "sm", "middle", 'style="letter-spacing:2px"')
                  + t(cx, cy + 24, m.get("level", "—"), "big", "middle", 'style="font-size:34px"'), 150))
     stats = [("Points", m.get("totalPoints")), ("Rooms", m.get("completedRoomsNumber")),
@@ -533,9 +548,9 @@ def card_chess(ch, upd):
         wpx, dpx = 128 * m["win"] / games, 128 * m["draw"] / games
         g = (t(x, 72, f"{icons.get(name, '')} {name}", "lab") + t(x, 106, m["rating"], "big")
              + t(x, 126, f"best {m['best']}" if m.get("best") else "", "sm")
-             + f'<rect x="{x}" y="146" width="128" height="8" rx="4" fill="{C["dim"]}"/>'
-             + f'<rect x="{x}" y="146" width="{wpx + dpx:.1f}" height="8" rx="4" fill="{C["brown"]}"/>'
-             + f'<rect x="{x}" y="146" width="{wpx:.1f}" height="8" rx="4" fill="{C["gold"]}"/>'
+             + f'<rect x="{x}" y="146" width="128" height="8" rx="4" fill="{C["red"]}"/>'
+             + f'<rect x="{x}" y="146" width="{wpx + dpx:.1f}" height="8" rx="4" fill="{C["gray"]}"/>'
+             + f'<rect x="{x}" y="146" width="{wpx:.1f}" height="8" rx="4" fill="{C["green"]}"/>'
              + t(x, 172, f"{n(m['win'])}W · {n(m['loss'])}L · {n(m['draw'])}D", "sm")
              + t(x, 190, f"{100 * m['win'] / games:.0f}% wins · {n(games)} games", "tiny"))
         if i:
@@ -560,7 +575,7 @@ def card_typing(lines):
         segs.append((tt, k))
         tt += k * tch + hold + k * dch + gap
     T = tt
-    parts = [f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#140e09" stroke="{C["line"]}"/>']
+    parts = []
     cur_times, cur_x = [0.0], [W / 2]
     for idx, (ln, (s, k)) in enumerate(zip(lines, segs)):
         x0 = (W - k * cw) / 2
@@ -579,11 +594,11 @@ def card_typing(lines):
         parts.append(f'<clipPath id="c{idx}"><rect x="{x0:.1f}" y="0" width="0" height="{H}">'
                      f'<animate attributeName="width" values="{vw}" keyTimes="{kt}" dur="{T:.2f}s" calcMode="discrete" repeatCount="indefinite"/></rect></clipPath>')
         parts.append(f'<text x="{x0:.1f}" y="{H / 2 + fs * 0.35:.1f}" clip-path="url(#c{idx})" textLength="{k * cw:.1f}" '
-                     f'lengthAdjust="spacingAndGlyphs" style="font:600 {fs}px {MONO};fill:{C["gold"]}">{escape(ln)}</text>')
+                     f'lengthAdjust="spacingAndGlyphs" style="font:600 {fs}px {MONO};fill:{C["text"]}">{escape(ln)}</text>')
     order = sorted(zip(cur_times, cur_x))
     kt = ";".join(f"{a:.5f}" for a, _ in order) + ";1"
     vx = ";".join(f"{b:.1f}" for _, b in order) + f";{order[-1][1]:.1f}"
-    parts.append(f'<rect y="{H / 2 - fs * 0.55:.1f}" width="2.5" height="{fs * 1.1:.1f}" fill="{C["orange"]}" x="{W / 2}">'
+    parts.append(f'<rect y="{H / 2 - fs * 0.55:.1f}" width="2.5" height="{fs * 1.1:.1f}" fill="{C["accent"]}" x="{W / 2}">'
                  f'<animate attributeName="x" values="{vx}" keyTimes="{kt}" dur="{T:.2f}s" calcMode="discrete" repeatCount="indefinite"/>'
                  f'<animate attributeName="opacity" values="1;0;1" dur="0.9s" repeatCount="indefinite"/></rect>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img">'
@@ -643,27 +658,30 @@ def main():
         open(os.path.join(cards, name), "w", encoding="utf-8").write(svg)
         print("  wrote", name)
 
-    if "github" in data:
-        g = data["github"]
-        s = cal_stats(g["days"])
-        u = g["updated"]
-        write("calendar.svg", card_calendar(g, u))
-        write("habits.svg", card_rings(s, u))
-        write("highlights.svg", card_highlights(g, s, u))
-        write("activity.svg", card_activity(g["days"], u))
-        write("rhythm.svg", card_rhythm(s, u))
-        write("month.svg", card_month(s, u))
-        if "github_private" in data:
-            p = data["github_private"]
-            write("stats.svg", card_stats(p, g, p["updated"], avatar))
-            write("languages.svg", card_languages(p, p["updated"]))
-    if "leetcode" in data:
-        write("leetcode.svg", card_leetcode(data["leetcode"], data["leetcode"]["updated"]))
-    if "chess" in data:
-        write("chess.svg", card_chess(data["chess"], data["chess"]["updated"]))
-    if "tryhackme" in data:
-        write("tryhackme.svg", card_thm(data["tryhackme"], data["tryhackme"]["updated"]))
-    write("typing.svg", card_typing(TYPING))
+    # name.svg is the dark-theme card, name-light.svg the light-theme one.
+    for theme, suffix in (("dark", ""), ("light", "-light")):
+        use_theme(theme)
+        if "github" in data:
+            g = data["github"]
+            s = cal_stats(g["days"])
+            u = g["updated"]
+            write(f"calendar{suffix}.svg", card_calendar(g, u))
+            write(f"habits{suffix}.svg", card_rings(s, u))
+            write(f"highlights{suffix}.svg", card_highlights(g, s, u))
+            write(f"activity{suffix}.svg", card_activity(g["days"], u))
+            write(f"rhythm{suffix}.svg", card_rhythm(s, u))
+            write(f"month{suffix}.svg", card_month(s, u))
+            if "github_private" in data:
+                p = data["github_private"]
+                write(f"stats{suffix}.svg", card_stats(p, g, p["updated"], avatar))
+                write(f"languages{suffix}.svg", card_languages(p, p["updated"]))
+        if "leetcode" in data:
+            write(f"leetcode{suffix}.svg", card_leetcode(data["leetcode"], data["leetcode"]["updated"]))
+        if "chess" in data:
+            write(f"chess{suffix}.svg", card_chess(data["chess"], data["chess"]["updated"]))
+        if "tryhackme" in data:
+            write(f"tryhackme{suffix}.svg", card_thm(data["tryhackme"], data["tryhackme"]["updated"]))
+        write(f"typing{suffix}.svg", card_typing(TYPING))
     json.dump(data, open(data_path, "w", encoding="utf-8"), indent=1)
 
 

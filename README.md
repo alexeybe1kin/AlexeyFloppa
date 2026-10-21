@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/typing.svg" alt="Hi, I'm Alexey Belkin" width="100%"/>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/typing-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/typing.svg" alt="Hi, I'm Alexey Belkin" width="100%"/></picture>
 </p>
 
 <p align="center">
@@ -54,25 +54,25 @@
 <h3 align="center">📈 a year on GitHub</h3>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/calendar.svg" alt="contribution calendar" width="100%"/>
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/habits.svg" alt="streaks and habits" width="100%"/>
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/activity.svg" alt="contributions over time" width="100%"/>
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/highlights.svg" alt="highlights" width="100%"/>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/calendar-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/calendar.svg" alt="contribution calendar" width="100%"/></picture>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/habits-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/habits.svg" alt="streaks and habits" width="100%"/></picture>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/activity-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/activity.svg" alt="contributions over time" width="100%"/></picture>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/highlights-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/highlights.svg" alt="highlights" width="100%"/></picture>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/stats.svg" alt="GitHub stats" width="49%"/>
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/languages.svg" alt="languages" width="49%"/>
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/rhythm.svg" alt="contributions by weekday" width="49%"/>
-  <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/month.svg" alt="last 30 days" width="49%"/>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/stats-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/stats.svg" alt="GitHub stats" width="49%"/></picture>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/languages-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/languages.svg" alt="languages" width="49%"/></picture>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/rhythm-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/rhythm.svg" alt="contributions by weekday" width="49%"/></picture>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/month-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/month.svg" alt="last 30 days" width="49%"/></picture>
 </p>
 
 <h3 align="center">🧩 off GitHub</h3>
 
 <p align="center">
-  <a href="https://leetcode.com/u/alexeybe1kin/"><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/leetcode.svg" alt="LeetCode stats" width="49%"/></a>
-  <a href="https://tryhackme.com/p/alexeybe1kin"><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/tryhackme.svg" alt="TryHackMe stats" width="49%"/></a>
-  <a href="https://www.chess.com/member/alexeybe1kin"><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/chess.svg" alt="Chess.com ratings" width="100%"/></a>
+  <a href="https://leetcode.com/u/alexeybe1kin/"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/leetcode-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/leetcode.svg" alt="LeetCode stats" width="49%"/></picture></a>
+  <a href="https://tryhackme.com/p/alexeybe1kin"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/tryhackme-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/tryhackme.svg" alt="TryHackMe stats" width="49%"/></picture></a>
+  <a href="https://www.chess.com/member/alexeybe1kin"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/chess-light.svg"/><img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/cards/chess.svg" alt="Chess.com ratings" width="100%"/></picture></a>
 </p>
 
 <p align="center">
@@ -83,7 +83,7 @@
 </p>
 
 <p align="center">
-  <img src="https://komarev.com/ghpvc/?username=alexeybe1kin&label=profile%20views&color=e8920f&style=for-the-badge" alt="profile views"/>
+  <img src="https://komarev.com/ghpvc/?username=alexeybe1kin&label=profile%20views&style=flat" alt="profile views"/>
   <br/>
   <sub>such profile · much wow · stats rebuilt every 6 hours by <a href=".github/workflows/profile-cards.yml">a workflow</a></sub>
 </p>
