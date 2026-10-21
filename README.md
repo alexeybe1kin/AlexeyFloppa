@@ -77,8 +77,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/snake/snake-dark.svg"/>
-    <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/snake/snake.svg" alt="contribution snake" width="100%"/>
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/snake/snake.svg"/>
+    <img src="https://raw.githubusercontent.com/alexeybe1kin/alexeybe1kin/output/snake/snake-dark.svg" alt="contribution snake" width="100%"/>
   </picture>
 </p>
 
